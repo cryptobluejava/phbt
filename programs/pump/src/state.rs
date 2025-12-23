@@ -1,13 +1,12 @@
 use crate::errors::CustomError;
-use crate::utils::convert_from_float;
-use crate::utils::convert_to_float;
+// Imports removed
+
 use anchor_lang::prelude::*;
 use anchor_lang::system_program;
 use anchor_spl::token::{self, Mint, Token, TokenAccount};
+// Unused imports removed
 use std::cmp;
-use std::ops::Div;
-use std::ops::Mul;
-use std::ops::Sub;
+
 
 #[account]
 pub struct CurveConfiguration {
@@ -16,20 +15,24 @@ pub struct CurveConfiguration {
     pub treasury: Pubkey,
     /// Tax rate in basis points (e.g., 5000 = 50%)
     pub paperhand_tax_bps: u16,
+    /// Admin authority for updating config
+    pub admin: Pubkey,
 }
 
 impl CurveConfiguration {
     pub const SEED: &'static str = "CurveConfiguration";
     pub const TREASURY_VAULT_SEED: &'static str = "treasury_vault";
 
-    // Discriminator (8) + u16 (2) + Pubkey (32) + u16 (2) + padding (6)
-    pub const ACCOUNT_SIZE: usize = 8 + 2 + 32 + 2 + 6;
+    // Discriminator (8) + u16 (2) + Pubkey (32) + u16 (2) + Pubkey (32) + padding (6)
+    // 8 + 2 + 32 + 2 + 32 + 6 = 82
+    pub const ACCOUNT_SIZE: usize = 8 + 2 + 32 + 2 + 32 + 6;
 
-    pub fn new(fees: u16, treasury: Pubkey, paperhand_tax_bps: u16) -> Self {
+    pub fn new(fees: u16, treasury: Pubkey, paperhand_tax_bps: u16, admin: Pubkey) -> Self {
         Self { 
             fees, 
             treasury,
             paperhand_tax_bps,
+            admin,
         }
     }
 }
@@ -349,11 +352,28 @@ impl<'info> LiquidityPoolAccount<'info> for Account<'info, LiquidityPool> {
         let shares_to_allocate;
 
         if self.total_supply == 0 {
-            let sqrt_shares = (convert_to_float(amount_one, token_one_accounts.0.decimals)
-                .mul(convert_to_float(amount_two, 9 as u8)))
-            .sqrt();
+            // Use integer sqrt of raw product (Standard Uniswap V2)
+            // shares = sqrt(amount_one * amount_two)
+            let product = (amount_one as u128)
+                .checked_mul(amount_two as u128)
+                .ok_or(CustomError::MathOverflow)?;
+            
+            // Simple integer sqrt
+            let sqrt_shares = {
+                if product < 2 {
+                    product as u64
+                } else {
+                    let mut x = product;
+                    let mut y = (x + 1) >> 1;
+                    while y < x {
+                        x = y;
+                        y = (x + product / x) >> 1;
+                    }
+                    x as u64
+                }
+            };
 
-            shares_to_allocate = sqrt_shares as u64;
+            shares_to_allocate = sqrt_shares;
         } else {
             let mul_value = amount_one
                 .checked_mul(self.total_supply)
@@ -507,28 +527,30 @@ impl<'info> LiquidityPoolAccount<'info> for Account<'info, LiquidityPool> {
         // dy = yx + ydx - xy / (x + dx)
         // formula => dy = ydx / (x + dx)
 
-        let adjusted_amount_in_float = convert_to_float(amount, token_one_accounts.0.decimals)
-            .div(100_f64)
-            .mul(100_f64.sub(_bonding_configuration_account.fees));
-
-        let adjusted_amount =
-            convert_from_float(adjusted_amount_in_float, token_one_accounts.0.decimals);
+        // Integer math replacement for swap logic in trait
+        // adjusted_amount = amount * (10000 - fees) / 10000
+        let fees_bps = _bonding_configuration_account.fees as u128; // fees is u16
+        let adjusted_amount = (amount as u128)
+            .checked_mul(10000u128.checked_sub(fees_bps).ok_or(CustomError::MathOverflow)?)
+            .ok_or(CustomError::MathOverflow)?
+            .checked_div(10000)
+            .ok_or(CustomError::MathOverflow)? as u64;
 
         if style == 1 {
-            let denominator_sum = self
-                .reserve_one
-                .checked_add(adjusted_amount)
-                .ok_or(CustomError::OverflowOrUnderflowOccurred)?;
+             // SELL logic
+            let reserve_one = self.reserve_one as u128;
+            let reserve_two = self.reserve_two as u128;
+            let adjusted_amt = adjusted_amount as u128;
 
-            let div_amt = convert_to_float(denominator_sum, token_one_accounts.0.decimals).div(
-                convert_to_float(adjusted_amount, token_one_accounts.0.decimals),
-            );
+            let denominator = reserve_one.checked_add(adjusted_amt).ok_or(CustomError::OverflowOrUnderflowOccurred)?;
+            let k = reserve_one.checked_mul(reserve_two).ok_or(CustomError::MathOverflow)?;
+            
+            let new_reserve_two = k.checked_div(denominator).ok_or(CustomError::MathOverflow)?;
+            let sol_out_before_tax = (reserve_two.checked_sub(new_reserve_two).ok_or(CustomError::MathOverflow)?) as u64;
+            
+            let amount_out = sol_out_before_tax; // For update_reserves below
 
-            let amount_out_in_float = convert_to_float(self.reserve_two, 9 as u8).div(div_amt);
-
-            let amount_out = convert_from_float(amount_out_in_float, 9 as u8);
-
-            let new_reserves_one = self
+             let new_reserves_one = self
                 .reserve_one
                 .checked_add(amount)
                 .ok_or(CustomError::OverflowOrUnderflowOccurred)?;
@@ -540,6 +562,7 @@ impl<'info> LiquidityPoolAccount<'info> for Account<'info, LiquidityPool> {
 
             self.update_reserves(new_reserves_one, new_reserves_two)?;
             msg!{"Reserves: {:?} {:?}", new_reserves_one, new_reserves_two}
+            
             self.transfer_token_to_pool(
                 token_one_accounts.2,
                 token_one_accounts.1,
@@ -555,19 +578,20 @@ impl<'info> LiquidityPoolAccount<'info> for Account<'info, LiquidityPool> {
                 system_program,
                 bump
             )?;
+
         } else {
-            let denominator_sum = self
-                .reserve_two
-                .checked_add(adjusted_amount)
-                .ok_or(CustomError::OverflowOrUnderflowOccurred)?;
+             // BUY logic
+            let reserve_one = self.reserve_one as u128;
+            let reserve_two = self.reserve_two as u128;
+            let adjusted_amt = adjusted_amount as u128;
 
-            let div_amt = convert_to_float(denominator_sum, token_one_accounts.0.decimals).div(
-                convert_to_float(adjusted_amount, token_one_accounts.0.decimals),
-            );
-
-            let amount_out_in_float = convert_to_float(self.reserve_one, 9 as u8).div(div_amt);
-
-            let amount_out = convert_from_float(amount_out_in_float, 9 as u8);
+            let denominator = reserve_two.checked_add(adjusted_amt).ok_or(CustomError::OverflowOrUnderflowOccurred)?;
+            let k = reserve_one.checked_mul(reserve_two).ok_or(CustomError::MathOverflow)?;
+            
+            let new_reserve_one = k.checked_div(denominator).ok_or(CustomError::MathOverflow)?;
+            let tokens_out = (reserve_one.checked_sub(new_reserve_one).ok_or(CustomError::MathOverflow)?) as u64;
+            
+            let amount_out = tokens_out;
 
             let new_reserves_one = self
                 .reserve_one
@@ -582,6 +606,7 @@ impl<'info> LiquidityPoolAccount<'info> for Account<'info, LiquidityPool> {
             self.update_reserves(new_reserves_one, new_reserves_two)?;
             
             msg!{"Reserves: {:?} {:?}", new_reserves_one, new_reserves_two}
+            
             self.transfer_token_from_pool(
                 token_one_accounts.1,
                 token_one_accounts.2,

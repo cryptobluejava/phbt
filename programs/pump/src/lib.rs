@@ -21,7 +21,7 @@ pub mod pump {
     /// * `paperhand_tax_bps` - PaperHand tax in basis points (5000 = 50%)
     pub fn initialize(
         ctx: Context<InitializeCurveConfiguration>, 
-        fee: f64,
+        fee: u16,
         paperhand_tax_bps: u16,
     ) -> Result<()> {
         instructions::initialize(ctx, fee, paperhand_tax_bps)
@@ -56,8 +56,8 @@ pub mod pump {
     /// # PaperHandBitchTax
     /// When selling at a loss (SOL received < cost basis), a 50% tax is applied
     /// to the SOL proceeds and sent to the treasury vault.
-    pub fn swap(ctx: Context<Swap>, amount: u64, style: u64) -> Result<()> {
-        instructions::swap(ctx, amount, style)
+    pub fn swap(ctx: Context<Swap>, amount: u64, style: u64, min_amount_out: u64) -> Result<()> {
+        instructions::swap(ctx, amount, style, min_amount_out)
     }
 
 // function removed
@@ -88,9 +88,10 @@ pub mod pump {
 
     pub fn update_configuration(
         ctx: Context<UpdateCurveConfiguration>,
-        new_treasury: Pubkey,
-        new_fees: Option<f64>,
+        new_fees: Option<u16>,
+        new_treasury: Option<Pubkey>,
+        new_paperhand_tax_bps: Option<u16>,
     ) -> Result<()> {
-        instructions::update_configuration(ctx, new_treasury, new_fees)
+        instructions::update_configuration(ctx, new_fees, new_treasury, new_paperhand_tax_bps)
     }
 }

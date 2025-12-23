@@ -50,4 +50,7 @@ pub enum CustomError {
 
     #[msg("Slippage tolerance exceeded")]
     SlippageExceeded,
+
+    #[msg("Unauthorized: Only admin can perform this action")]
+    Unauthorized,
 }

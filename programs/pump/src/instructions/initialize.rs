@@ -31,6 +31,7 @@ pub fn initialize(
         fees,
         ctx.accounts.treasury_vault.key(),
         paperhand_tax_bps,
+        ctx.accounts.admin.key(),
     ));
 
     Ok(())

@@ -1,21 +1,37 @@
-use crate::{errors::CustomError, state::*};
 use anchor_lang::prelude::*;
+use crate::state::CurveConfiguration;
+use crate::errors::CustomError;
 
 pub fn update_configuration(
     ctx: Context<UpdateCurveConfiguration>,
-    new_treasury: Pubkey,
-    new_fees: Option<f64>,
+    new_fees: Option<u16>,
+    new_treasury: Option<Pubkey>,
+    new_paperhand_tax_bps: Option<u16>,
 ) -> Result<()> {
     let dex_config = &mut ctx.accounts.dex_configuration_account;
 
+    // Admin validation
+    require!(ctx.accounts.admin.key() == dex_config.admin, CustomError::Unauthorized);
+
     if let Some(fees) = new_fees {
-        if fees < 0_f64 || fees > 100_f64 {
+        if fees > 10000 {
             return err!(CustomError::InvalidFee);
         }
         dex_config.fees = fees;
     }
 
-    dex_config.treasury = new_treasury;
+    if let Some(treasury) = new_treasury {
+        dex_config.treasury = treasury;
+    }
+
+    if let Some(tax_bps) = new_paperhand_tax_bps {
+        if tax_bps > 10000 {
+            return err!(CustomError::InvalidTaxBps);
+        }
+        dex_config.paperhand_tax_bps = tax_bps;
+    }
+
+    msg!("Configuration updated by admin: {:?}", ctx.accounts.admin.key());
 
     Ok(())
 }
@@ -29,6 +45,6 @@ pub struct UpdateCurveConfiguration<'info> {
     )]
     pub dex_configuration_account: Box<Account<'info, CurveConfiguration>>,
 
-    #[account(mut)]
+    #[account(mut, signer)]
     pub admin: Signer<'info>,
 }
