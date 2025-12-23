@@ -47,4 +47,7 @@ pub enum CustomError {
 
     #[msg("Invalid paperhand tax basis points (must be <= 10000)")]
     InvalidTaxBps,
+
+    #[msg("Slippage tolerance exceeded")]
+    SlippageExceeded,
 }

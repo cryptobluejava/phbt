@@ -11,7 +11,7 @@ use std::ops::Sub;
 
 #[account]
 pub struct CurveConfiguration {
-    pub fees: f64,
+    pub fees: u16,
     /// Treasury wallet that receives the PaperHand tax
     pub treasury: Pubkey,
     /// Tax rate in basis points (e.g., 5000 = 50%)
@@ -22,10 +22,10 @@ impl CurveConfiguration {
     pub const SEED: &'static str = "CurveConfiguration";
     pub const TREASURY_VAULT_SEED: &'static str = "treasury_vault";
 
-    // Discriminator (8) + f64 (8) + Pubkey (32) + u16 (2) + padding (6)
-    pub const ACCOUNT_SIZE: usize = 8 + 8 + 32 + 2 + 6;
+    // Discriminator (8) + u16 (2) + Pubkey (32) + u16 (2) + padding (6)
+    pub const ACCOUNT_SIZE: usize = 8 + 2 + 32 + 2 + 6;
 
-    pub fn new(fees: f64, treasury: Pubkey, paperhand_tax_bps: u16) -> Self {
+    pub fn new(fees: u16, treasury: Pubkey, paperhand_tax_bps: u16) -> Self {
         Self { 
             fees, 
             treasury,

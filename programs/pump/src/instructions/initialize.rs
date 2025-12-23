@@ -3,12 +3,13 @@ use anchor_lang::prelude::*;
 
 pub fn initialize(
     ctx: Context<InitializeCurveConfiguration>,
-    fees: f64,
+    fees: u16,
     paperhand_tax_bps: u16,
 ) -> Result<()> {
     let dex_config = &mut ctx.accounts.dex_configuration_account;
 
-    if fees < 0_f64 || fees > 100_f64 {
+    // Validate fees (max 100% = 10000 bps)
+    if fees > 10000 {
         return err!(CustomError::InvalidFee);
     }
 

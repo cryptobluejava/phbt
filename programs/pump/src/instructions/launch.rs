@@ -137,7 +137,9 @@ fn initialize_pool_helper(
     initial_sol_reserve: u64,
 ) -> Result<()> {
     pool.token_one = mint_key;
-    pool.token_two = mint_key;
+    // Fix: token_two is SOL (virtual), so we shouldn't copy mint_key.
+    // We use the System Program ID to denote SOL.
+    pool.token_two = system_program::ID;
     pool.total_supply = initial_supply;
     pool.reserve_one = initial_supply;
     pool.reserve_two = initial_sol_reserve;
@@ -221,7 +223,7 @@ pub struct Launch<'info> {
         mint::decimals = decimals,
         mint::authority = global_account,
         mint::freeze_authority = global_account,
-        seeds = [b"mint", symbol.as_bytes()],
+        seeds = [b"mint", symbol.as_bytes(), creator.key().as_ref()],
         bump,
     )]
     pub mint: Box<Account<'info, Mint>>,

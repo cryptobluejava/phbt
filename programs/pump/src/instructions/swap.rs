@@ -4,12 +4,9 @@ use anchor_spl::{
     associated_token::AssociatedToken,
     token::{self, Mint, Token, TokenAccount},
 };
-use std::ops::{Div, Mul, Sub};
-
 use crate::{
     errors::CustomError,
     state::{CurveConfiguration, LiquidityPool, UserPosition},
-    utils::{convert_from_float, convert_to_float},
 };
 
 /// Events for tracking trades and tax application
@@ -41,7 +38,7 @@ pub struct PositionUpdated {
     pub total_sol: u64,
 }
 
-pub fn swap(ctx: Context<Swap>, amount: u64, style: u64) -> Result<()> {
+pub fn swap(ctx: Context<Swap>, amount: u64, style: u64, min_amount_out: u64) -> Result<()> {
     if amount <= 0 {
         return err!(CustomError::InvalidAmount);
     }
@@ -56,25 +53,39 @@ pub fn swap(ctx: Context<Swap>, amount: u64, style: u64) -> Result<()> {
     msg!("Swap: {:?} {:?} {:?}", ctx.accounts.user.key(), style, amount);
 
     // Compute fee-adjusted amount
-    let adjusted_amount_in_float = convert_to_float(amount, ctx.accounts.mint_token_one.decimals)
-        .div(100_f64)
-        .mul(100_f64.sub(config.fees));
-    let adjusted_amount = convert_from_float(adjusted_amount_in_float, ctx.accounts.mint_token_one.decimals);
+    // Compute fee-adjusted amount: amount * (10000 - fees) / 10000
+    // fees and paperhand_tax_bps are both in basis points
+    let fees_bps = config.fees as u128;
+    let adjusted_amount = (amount as u128)
+        .checked_mul(10000u128.checked_sub(fees_bps).ok_or(CustomError::MathOverflow)?)
+        .ok_or(CustomError::MathOverflow)?
+        .checked_div(10000)
+        .ok_or(CustomError::MathOverflow)? as u64;
 
     if style == 1 {
         // SELL: User sells tokens for SOL
         // style == 1 means user sends tokens to pool and receives SOL
         
         // Calculate SOL output before any tax
-        let denominator_sum = pool.reserve_one
-            .checked_add(adjusted_amount)
-            .ok_or(CustomError::OverflowOrUnderflowOccurred)?;
+        // Calculate SOL output before any tax
+        // Constant product: (reserve_one + adjusted_amount) * (reserve_two - amount_out) = reserve_one * reserve_two
+        // (reserve_two - amount_out) = (reserve_one * reserve_two) / (reserve_one + adjusted_amount)
+        // amount_out = reserve_two - (reserve_one * reserve_two) / (reserve_one + adjusted_amount)
+        
+        let reserve_one = pool.reserve_one as u128;
+        let reserve_two = pool.reserve_two as u128;
+        let adjusted_amt = adjusted_amount as u128;
 
-        let div_amt = convert_to_float(denominator_sum, ctx.accounts.mint_token_one.decimals)
-            .div(convert_to_float(adjusted_amount, ctx.accounts.mint_token_one.decimals));
-
-        let amount_out_in_float = convert_to_float(pool.reserve_two, 9_u8).div(div_amt);
-        let sol_out_before_tax = convert_from_float(amount_out_in_float, 9_u8);
+        let denominator = reserve_one.checked_add(adjusted_amt).ok_or(CustomError::OverflowOrUnderflowOccurred)?;
+        let k = reserve_one.checked_mul(reserve_two).ok_or(CustomError::MathOverflow)?;
+        
+        let new_reserve_two = k.checked_div(denominator).ok_or(CustomError::MathOverflow)?;
+        let sol_out_before_tax = (reserve_two.checked_sub(new_reserve_two).ok_or(CustomError::MathOverflow)?) as u64;
+        
+        // Slippage Check
+        if sol_out_before_tax < min_amount_out {
+            return err!(CustomError::SlippageExceeded);
+        }
 
         // Check if user has sufficient position to sell
         if position.total_tokens < amount {
@@ -195,15 +206,22 @@ pub fn swap(ctx: Context<Swap>, amount: u64, style: u64) -> Result<()> {
         // BUY: User sends SOL to buy tokens
         // style == 2 (or any other) means user sends SOL and receives tokens
         
-        let denominator_sum = pool.reserve_two
-            .checked_add(adjusted_amount)
-            .ok_or(CustomError::OverflowOrUnderflowOccurred)?;
+        // Constant product similar to above
+        
+        let reserve_one = pool.reserve_one as u128;
+        let reserve_two = pool.reserve_two as u128;
+        let adjusted_amt = adjusted_amount as u128;
 
-        let div_amt = convert_to_float(denominator_sum, ctx.accounts.mint_token_one.decimals)
-            .div(convert_to_float(adjusted_amount, ctx.accounts.mint_token_one.decimals));
+        let denominator = reserve_two.checked_add(adjusted_amt).ok_or(CustomError::OverflowOrUnderflowOccurred)?;
+        let k = reserve_one.checked_mul(reserve_two).ok_or(CustomError::MathOverflow)?;
+        
+        let new_reserve_one = k.checked_div(denominator).ok_or(CustomError::MathOverflow)?;
+        let tokens_out = (reserve_one.checked_sub(new_reserve_one).ok_or(CustomError::MathOverflow)?) as u64;
 
-        let amount_out_in_float = convert_to_float(pool.reserve_one, 9_u8).div(div_amt);
-        let tokens_out = convert_from_float(amount_out_in_float, 9_u8);
+        // Slippage Check
+        if tokens_out < min_amount_out {
+            return err!(CustomError::SlippageExceeded);
+        }
 
         // Update reserves
         let new_reserves_one = pool.reserve_one
