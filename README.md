@@ -33,9 +33,9 @@ No tax. Zero. Diamond hands eat free.
 
 | | Address |
 |---|---|
-| Token | `ydDccyq66xKtfqn5bsRpfFXz4WeF4fh3bgQBx1npump` |
-| Treasury | `x4Cu1KF26LgDoGsEajF6mV6ERCg4iBncrSSHvza7xEN` |
-| Program | `GyukgDYugNtzHiEdRroSiU5iFTCDJ1geAF2ekP6UbBTY` |
+| Token | `` |
+| Treasury | `DLzTaDix69bzWsKS7srPqfQg3iZzm2VYVvfM2e6tBxiJ` |
+| Program | `J3pvSaDxrBDX38nBG4CcTodGmkaFuRabVW6Erp712GF2` |
 
 ## Technical Details
 
