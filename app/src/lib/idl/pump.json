@@ -1,0 +1,1562 @@
+{
+  "address": "8XQAVjtT1QSYgVp8WzhVdwuSvGfDX9UifZupiLvBe2Lh",
+  "metadata": {
+    "name": "pump",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "add_liquidity",
+      "discriminator": [
+        181,
+        157,
+        89,
+        67,
+        143,
+        182,
+        52,
+        72
+      ],
+      "accounts": [
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  105,
+                  113,
+                  117,
+                  105,
+                  100,
+                  105,
+                  116,
+                  121,
+                  95,
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint_token_one"
+              }
+            ]
+          }
+        },
+        {
+          "name": "global_account",
+          "docs": [
+            "CHECK"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "liquidity_provider_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  76,
+                  105,
+                  113,
+                  117,
+                  100,
+                  105,
+                  116,
+                  121,
+                  80,
+                  114,
+                  111,
+                  118,
+                  105,
+                  100,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint_token_one",
+          "writable": true
+        },
+        {
+          "name": "pool_token_account_one",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "global_account"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint_token_one"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "user_token_account_one",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "user"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint_token_one"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount_one",
+          "type": "u64"
+        },
+        {
+          "name": "amount_two",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "initialize",
+      "docs": [
+        "Initialize the bonding curve configuration with fee and PaperHandBitchTax settings",
+        "",
+        "# Arguments",
+        "* `fee` - Trading fee percentage (0-100)",
+        "* `paperhand_tax_bps` - PaperHand tax in basis points (5000 = 50%)"
+      ],
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
+      "accounts": [
+        {
+          "name": "dex_configuration_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  67,
+                  117,
+                  114,
+                  118,
+                  101,
+                  67,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103,
+                  117,
+                  114,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "global_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "treasury_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  101,
+                  97,
+                  115,
+                  117,
+                  114,
+                  121,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "fee",
+          "type": "f64"
+        },
+        {
+          "name": "paperhand_tax_bps",
+          "type": "u16"
+        }
+      ]
+    },
+    {
+      "name": "launch",
+      "docs": [
+        "Launch a new token with Paper Hand Tax enabled",
+        "",
+        "Creates a new SPL token, sets Metaplex metadata, initializes the bonding",
+        "curve pool, and mints the initial supply.",
+        "",
+        "# Arguments",
+        "* `name` - Token name (max 32 chars)",
+        "* `symbol` - Token symbol (max 10 chars)",
+        "* `uri` - Metadata URI (max 200 chars)",
+        "* `decimals` - Token decimals (typically 6 or 9)",
+        "* `initial_supply` - Total supply to mint",
+        "* `initial_sol_reserve` - Initial SOL for bonding curve"
+      ],
+      "discriminator": [
+        153,
+        241,
+        93,
+        225,
+        22,
+        69,
+        74,
+        61
+      ],
+      "accounts": [
+        {
+          "name": "dex_configuration_account",
+          "docs": [
+            "The CurveConfiguration must exist (initialized)"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  67,
+                  117,
+                  114,
+                  118,
+                  101,
+                  67,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103,
+                  117,
+                  114,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint",
+          "docs": [
+            "The new token mint (PDA derived from symbol for uniqueness)"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "symbol"
+              }
+            ]
+          }
+        },
+        {
+          "name": "metadata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  116,
+                  97,
+                  100,
+                  97,
+                  116,
+                  97
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "metadata_program"
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "account",
+              "path": "metadata_program"
+            }
+          }
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "The liquidity pool for this token"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  105,
+                  113,
+                  117,
+                  105,
+                  100,
+                  105,
+                  116,
+                  121,
+                  95,
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "global_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool_token_account",
+          "docs": [
+            "Pool's token account (holds the minted supply)"
+          ],
+          "writable": true
+        },
+        {
+          "name": "creator",
+          "docs": [
+            "The creator/payer"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "docs": [
+            "System program"
+          ]
+        },
+        {
+          "name": "token_program",
+          "docs": [
+            "Token program"
+          ]
+        },
+        {
+          "name": "associated_token_program",
+          "docs": [
+            "Associated token program"
+          ]
+        },
+        {
+          "name": "metadata_program",
+          "docs": [
+            "Metaplex Token Metadata program"
+          ]
+        },
+        {
+          "name": "rent",
+          "docs": [
+            "Rent sysvar"
+          ],
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "symbol",
+          "type": "string"
+        },
+        {
+          "name": "uri",
+          "type": "string"
+        },
+        {
+          "name": "decimals",
+          "type": "u8"
+        },
+        {
+          "name": "initial_supply",
+          "type": "u64"
+        },
+        {
+          "name": "initial_sol_reserve",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "remove_liquidity",
+      "discriminator": [
+        80,
+        85,
+        209,
+        72,
+        24,
+        206,
+        177,
+        108
+      ],
+      "accounts": [
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  105,
+                  113,
+                  117,
+                  105,
+                  100,
+                  105,
+                  116,
+                  121,
+                  95,
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "coin_mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "global_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "coin_mint",
+          "writable": true
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "nonce",
+          "type": "u8"
+        },
+        {
+          "name": "init_pc_amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "swap",
+      "docs": [
+        "Swap tokens using the bonding curve",
+        "",
+        "# Arguments",
+        "* `amount` - Amount to swap (tokens if selling, SOL if buying)",
+        "* `style` - 1 for SELL (tokens -> SOL), 2 for BUY (SOL -> tokens)",
+        "",
+        "# PaperHandBitchTax",
+        "When selling at a loss (SOL received < cost basis), a 50% tax is applied",
+        "to the SOL proceeds and sent to the treasury vault."
+      ],
+      "discriminator": [
+        248,
+        198,
+        158,
+        145,
+        225,
+        117,
+        135,
+        200
+      ],
+      "accounts": [
+        {
+          "name": "dex_configuration_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  67,
+                  117,
+                  114,
+                  118,
+                  101,
+                  67,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103,
+                  117,
+                  114,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  105,
+                  113,
+                  117,
+                  105,
+                  100,
+                  105,
+                  116,
+                  121,
+                  95,
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint_token_one"
+              }
+            ]
+          }
+        },
+        {
+          "name": "global_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "treasury_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  101,
+                  97,
+                  115,
+                  117,
+                  114,
+                  121,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_position",
+          "docs": [
+            "User position account for tracking cost basis (init_if_needed on first buy)"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  115,
+                  105,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint_token_one",
+          "writable": true
+        },
+        {
+          "name": "pool_token_account_one",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "global_account"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint_token_one"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "user_token_account_one",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "user"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint_token_one"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "style",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "CurveConfiguration",
+      "discriminator": [
+        225,
+        242,
+        252,
+        198,
+        63,
+        77,
+        56,
+        255
+      ]
+    },
+    {
+      "name": "LiquidityPool",
+      "discriminator": [
+        66,
+        38,
+        17,
+        64,
+        188,
+        80,
+        68,
+        129
+      ]
+    },
+    {
+      "name": "LiquidityProvider",
+      "discriminator": [
+        219,
+        241,
+        238,
+        133,
+        56,
+        225,
+        229,
+        191
+      ]
+    },
+    {
+      "name": "UserPosition",
+      "discriminator": [
+        251,
+        248,
+        209,
+        245,
+        83,
+        234,
+        17,
+        27
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "PaperhandTaxApplied",
+      "discriminator": [
+        136,
+        32,
+        248,
+        135,
+        219,
+        47,
+        75,
+        254
+      ]
+    },
+    {
+      "name": "PositionUpdated",
+      "discriminator": [
+        208,
+        212,
+        54,
+        188,
+        246,
+        71,
+        235,
+        88
+      ]
+    },
+    {
+      "name": "TokenLaunched",
+      "discriminator": [
+        225,
+        232,
+        190,
+        147,
+        213,
+        192,
+        220,
+        168
+      ]
+    },
+    {
+      "name": "TradeExecuted",
+      "discriminator": [
+        41,
+        110,
+        64,
+        129,
+        60,
+        79,
+        179,
+        80
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "NameTooLong",
+      "msg": "Token name is too long (max 32 characters)"
+    },
+    {
+      "code": 6001,
+      "name": "SymbolTooLong",
+      "msg": "Token symbol is too long (max 10 characters)"
+    },
+    {
+      "code": 6002,
+      "name": "UriTooLong",
+      "msg": "Metadata URI is too long (max 200 characters)"
+    },
+    {
+      "code": 6003,
+      "name": "InvalidSupply",
+      "msg": "Initial supply must be greater than 0"
+    },
+    {
+      "code": 6004,
+      "name": "InvalidSolReserve",
+      "msg": "Initial SOL reserve must be greater than 0"
+    }
+  ],
+  "types": [
+    {
+      "name": "CurveConfiguration",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "fees",
+            "type": "f64"
+          },
+          {
+            "name": "treasury",
+            "docs": [
+              "Treasury wallet that receives the PaperHand tax"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "paperhand_tax_bps",
+            "docs": [
+              "Tax rate in basis points (e.g., 5000 = 50%)"
+            ],
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "LiquidityPool",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "token_one",
+            "type": "pubkey"
+          },
+          {
+            "name": "token_two",
+            "type": "pubkey"
+          },
+          {
+            "name": "total_supply",
+            "type": "u64"
+          },
+          {
+            "name": "reserve_one",
+            "type": "u64"
+          },
+          {
+            "name": "reserve_two",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "LiquidityProvider",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "shares",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PaperhandTaxApplied",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "sol_out_before_tax",
+            "type": "u64"
+          },
+          {
+            "name": "cost_basis_for_sale",
+            "type": "u64"
+          },
+          {
+            "name": "tax",
+            "type": "u64"
+          },
+          {
+            "name": "sol_to_user",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PositionUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "total_tokens",
+            "type": "u64"
+          },
+          {
+            "name": "total_sol",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TokenLaunched",
+      "docs": [
+        "Event emitted when a new token is launched"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "symbol",
+            "type": "string"
+          },
+          {
+            "name": "uri",
+            "type": "string"
+          },
+          {
+            "name": "initial_supply",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TradeExecuted",
+      "docs": [
+        "Events for tracking trades and tax application"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "side",
+            "type": "string"
+          },
+          {
+            "name": "token_amount",
+            "type": "u64"
+          },
+          {
+            "name": "sol_amount",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UserPosition",
+      "docs": [
+        "Tracks a user's cost basis for a specific pool",
+        "Used to determine if a sell is at a loss for PaperHandBitchTax"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "docs": [
+              "The pool this position is for"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "docs": [
+              "The owner of this position"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "total_tokens",
+            "docs": [
+              "Total tokens bought through the bonding curve (in smallest units)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_sol",
+            "docs": [
+              "Total SOL spent buying tokens (in lamports)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA bump seed"
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ]
+}

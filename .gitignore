@@ -1,0 +1,35 @@
+
+**/*.rs.bk
+test-ledger
+.yarn
+
+# Environment variables & Secrets
+.env
+.env.local
+.env.example
+devnet-wallet.json
+mainnet-wallet.json
+id.json
+
+# Solana/Anchor
+target
+target/
+dist/
+node_modules/
+.anchor/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.so
+*.dylib
+*.dll
