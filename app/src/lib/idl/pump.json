@@ -1,5 +1,5 @@
 {
-  "address": "8XQAVjtT1QSYgVp8WzhVdwuSvGfDX9UifZupiLvBe2Lh",
+  "address": "DorUpzxXyF9VMGxdaVmBtCtg2SDnnm4pY3Bf9FFFKK6a",
   "metadata": {
     "name": "pump",
     "version": "0.1.0",
@@ -399,30 +399,7 @@
         },
         {
           "name": "treasury_vault",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  116,
-                  114,
-                  101,
-                  97,
-                  115,
-                  117,
-                  114,
-                  121,
-                  95,
-                  118,
-                  97,
-                  117,
-                  108,
-                  116
-                ]
-              }
-            ]
-          }
+          "writable": true
         },
         {
           "name": "admin",
@@ -441,7 +418,7 @@
       "args": [
         {
           "name": "fee",
-          "type": "f64"
+          "type": "u16"
         },
         {
           "name": "paperhand_tax_bps",
@@ -529,6 +506,10 @@
               {
                 "kind": "arg",
                 "path": "symbol"
+              },
+              {
+                "kind": "account",
+                "path": "creator"
               }
             ]
           }
@@ -896,30 +877,7 @@
         },
         {
           "name": "treasury_vault",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  116,
-                  114,
-                  101,
-                  97,
-                  115,
-                  117,
-                  114,
-                  121,
-                  95,
-                  118,
-                  97,
-                  117,
-                  108,
-                  116
-                ]
-              }
-            ]
-          }
+          "writable": true
         },
         {
           "name": "user_position",
@@ -1167,6 +1125,81 @@
         {
           "name": "style",
           "type": "u64"
+        },
+        {
+          "name": "min_amount_out",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "update_configuration",
+      "discriminator": [
+        156,
+        68,
+        173,
+        185,
+        72,
+        133,
+        242,
+        232
+      ],
+      "accounts": [
+        {
+          "name": "dex_configuration_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  67,
+                  117,
+                  114,
+                  118,
+                  101,
+                  67,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103,
+                  117,
+                  114,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "new_fees",
+          "type": {
+            "option": "u16"
+          }
+        },
+        {
+          "name": "new_treasury",
+          "type": {
+            "option": "pubkey"
+          }
+        },
+        {
+          "name": "new_paperhand_tax_bps",
+          "type": {
+            "option": "u16"
+          }
         }
       ]
     }
@@ -1314,7 +1347,7 @@
         "fields": [
           {
             "name": "fees",
-            "type": "f64"
+            "type": "u16"
           },
           {
             "name": "treasury",
@@ -1329,6 +1362,22 @@
               "Tax rate in basis points (e.g., 5000 = 50%)"
             ],
             "type": "u16"
+          },
+          {
+            "name": "admin",
+            "docs": [
+              "Admin authority for updating config"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "default_virtual_sol",
+            "docs": [
+              "Default virtual SOL reserve for new pools (in lamports)",
+              "This creates virtual liquidity for better price curves",
+              "50 SOL = 50_000_000_000 lamports"
+            ],
+            "type": "u64"
           }
         ]
       }
@@ -1356,6 +1405,10 @@
           },
           {
             "name": "reserve_two",
+            "type": "u64"
+          },
+          {
+            "name": "virtual_sol_reserve",
             "type": "u64"
           },
           {

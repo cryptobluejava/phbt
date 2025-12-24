@@ -52,12 +52,17 @@ pub fn launch(
 
     // Call helper functions with #[inline(never)] to use separate stack frames
     create_metadata_helper(&ctx, &name, &symbol, &uri)?;
+    
+    // Get virtual SOL from config for better price curves
+    let virtual_sol = ctx.accounts.dex_configuration_account.default_virtual_sol;
+    
     initialize_pool_helper(
         &mut ctx.accounts.pool,
         ctx.accounts.mint.key(),
         ctx.bumps.pool,
         initial_supply,
-        initial_sol_reserve
+        initial_sol_reserve,
+        virtual_sol
     )?;
     create_pool_token_account_helper(&ctx)?;
     mint_tokens_helper(&ctx, initial_supply)?;
@@ -135,15 +140,20 @@ fn initialize_pool_helper(
     bump: u8,
     initial_supply: u64,
     initial_sol_reserve: u64,
+    virtual_sol: u64,
 ) -> Result<()> {
     pool.token_one = mint_key;
-    // Fix: token_two is SOL (virtual), so we shouldn't copy mint_key.
-    // We use the System Program ID to denote SOL.
+    // token_two is SOL (virtual), so we use the System Program ID to denote SOL.
     pool.token_two = system_program::ID;
     pool.total_supply = initial_supply;
     pool.reserve_one = initial_supply;
     pool.reserve_two = initial_sol_reserve;
+    pool.virtual_sol_reserve = virtual_sol;
     pool.bump = bump;
+    
+    msg!("Pool initialized with {} real SOL + {} virtual SOL", 
+        initial_sol_reserve, virtual_sol);
+    
     Ok(())
 }
 

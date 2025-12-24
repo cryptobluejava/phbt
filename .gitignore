@@ -3,6 +3,7 @@
 test-ledger
 .yarn
 
+
 # Environment variables & Secrets
 .env
 .env.local
@@ -10,6 +11,8 @@ test-ledger
 devnet-wallet.json
 mainnet-wallet.json
 id.json
+keys/
+keys/*.json
 
 # Solana/Anchor
 target
@@ -33,3 +36,14 @@ Thumbs.db
 *.so
 *.dylib
 *.dll
+
+# Package manager (using yarn, ignore npm lock)
+package-lock.json
+
+# Next.js
+app/.next/
+.next/
+out/
+
+# Local config overrides
+Anchor-prod.toml

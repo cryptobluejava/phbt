@@ -11,10 +11,11 @@ interface TradesTableProps {
     mint: PublicKey
     trades: Trade[]
     isLoading: boolean
+    isRefreshing: boolean
     onRefresh: () => void
 }
 
-export function TradesTable({ mint, trades, isLoading, onRefresh }: TradesTableProps) {
+export function TradesTable({ mint, trades, isLoading, isRefreshing, onRefresh }: TradesTableProps) {
 
     const getTypeBadge = (type: Trade["type"]) => {
         switch (type) {
@@ -49,10 +50,10 @@ export function TradesTable({ mint, trades, isLoading, onRefresh }: TradesTableP
                     </div>
                     <button
                         onClick={onRefresh}
-                        disabled={isLoading}
+                        disabled={isRefreshing}
                         className="p-2 rounded-lg hover:bg-[#1A2428] transition-colors disabled:opacity-50"
                     >
-                        <RefreshCw className={`w-4 h-4 text-[#9FA6A3] ${isLoading ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`w-4 h-4 text-[#9FA6A3] ${isRefreshing ? 'animate-spin' : ''}`} />
                     </button>
                 </div>
             </CardHeader>

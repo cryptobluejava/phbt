@@ -26,6 +26,7 @@ pub fn add_liquidity(ctx: Context<AddLiquidity>, amount_one: u64, amount_two: u6
     pool.set_inner(LiquidityPool::new(
         ctx.accounts.mint_token_one.key(),
         ctx.bumps.pool,
+        0, // Virtual SOL not applicable for manual liquidity adds
     ));
 
     pool.add_liquidity(

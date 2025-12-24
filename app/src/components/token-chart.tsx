@@ -1,21 +1,37 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { createChart, ColorType, IChartApi, ISeriesApi, AreaData, Time, AreaSeries } from "lightweight-charts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { RefreshCw } from "lucide-react"
 import { Trade } from "@/hooks/use-token-page-data"
+import { getSolPrice, formatUSD } from "@/lib/sol-price"
 
 interface TokenChartProps {
     trades: Trade[]
+    totalSupply: number
     isLoading: boolean
+    isRefreshing: boolean
     onRefresh: () => void
 }
 
-export function TokenChart({ trades, isLoading, onRefresh }: TokenChartProps) {
+export function TokenChart({ trades, totalSupply, isLoading, isRefreshing, onRefresh }: TokenChartProps) {
     const chartContainerRef = useRef<HTMLDivElement>(null)
     const chartRef = useRef<IChartApi | null>(null)
     const seriesRef = useRef<ISeriesApi<"Area"> | null>(null)
+    const [solPrice, setSolPrice] = useState<number>(0)
+    const [currentMarketCap, setCurrentMarketCap] = useState<number>(0)
+
+    // Fetch SOL price on mount and periodically
+    useEffect(() => {
+        const fetchPrice = async () => {
+            const price = await getSolPrice()
+            setSolPrice(price)
+        }
+        fetchPrice()
+        const interval = setInterval(fetchPrice, 60000) // Update every minute
+        return () => clearInterval(interval)
+    }, [])
 
     useEffect(() => {
         if (!chartContainerRef.current) return
@@ -34,6 +50,10 @@ export function TokenChart({ trades, isLoading, onRefresh }: TokenChartProps) {
             height: 300,
             rightPriceScale: {
                 borderColor: "#2A3338",
+                scaleMargins: {
+                    top: 0.1,
+                    bottom: 0, // Start at 0, never go negative
+                },
             },
             timeScale: {
                 borderColor: "#2A3338",
@@ -62,6 +82,17 @@ export function TokenChart({ trades, isLoading, onRefresh }: TokenChartProps) {
             bottomColor: "rgba(140, 58, 50, 0.04)",
             lineColor: "#8C3A32",
             lineWidth: 2,
+            priceFormat: {
+                type: 'custom',
+                formatter: (price: number) => {
+                    if (price < 0) return '$0' // Never show negative
+                    if (price >= 1_000_000_000) return `$${(price / 1_000_000_000).toFixed(1)}B`
+                    if (price >= 1_000_000) return `$${(price / 1_000_000).toFixed(1)}M`
+                    if (price >= 1_000) return `$${(price / 1_000).toFixed(1)}K`
+                    if (price >= 1) return `$${price.toFixed(0)}`
+                    return `$${price.toFixed(2)}`
+                },
+            },
         })
 
         seriesRef.current = areaSeries
@@ -83,25 +114,32 @@ export function TokenChart({ trades, isLoading, onRefresh }: TokenChartProps) {
         }
     }, [])
 
-    // Update data when trades change
+    // Update data when trades change or SOL price updates
     useEffect(() => {
-        if (!seriesRef.current || trades.length === 0) return
+        if (!seriesRef.current || trades.length === 0 || totalSupply === 0 || solPrice === 0) return
 
-        // Convert trades to chart data (sorted by time ascending)
+        // Convert trades to chart data showing market cap in USD
+        // Ensure all values are positive (no negative market caps)
         const chartData: AreaData<Time>[] = [...trades]
             .sort((a, b) => a.timestamp - b.timestamp)
             .map((trade) => ({
                 time: trade.timestamp as Time,
-                value: trade.price * 1_000_000, // Show price in more readable units
+                // Market cap in USD = price per token (SOL) * total supply * SOL price
+                value: Math.max(0, trade.price * totalSupply * solPrice),
             }))
 
         seriesRef.current.setData(chartData)
+
+        // Update current market cap (latest trade)
+        if (chartData.length > 0) {
+            setCurrentMarketCap(chartData[chartData.length - 1].value)
+        }
 
         // Fit content
         if (chartRef.current) {
             chartRef.current.timeScale().fitContent()
         }
-    }, [trades])
+    }, [trades, totalSupply, solPrice])
 
     return (
         <Card>
@@ -110,25 +148,28 @@ export function TokenChart({ trades, isLoading, onRefresh }: TokenChartProps) {
                     <div className="flex items-center gap-3">
                         <div className="w-1 h-8 bg-[#8C3A32]" />
                         <div>
-                            <CardTitle className="text-lg">Price Chart</CardTitle>
+                            <CardTitle className="text-lg">
+                                Market Cap {currentMarketCap > 0 && <span className="text-[#8C3A32]">{formatUSD(currentMarketCap)}</span>}
+                            </CardTitle>
                             <p className="text-xs text-[#5F6A6E] mt-0.5">
-                                SOL per 1M tokens
+                                {solPrice > 0 ? `SOL @ $${solPrice.toFixed(2)}` : "Loading price..."}
                             </p>
                         </div>
                     </div>
                     <button
                         onClick={onRefresh}
-                        disabled={isLoading}
+                        disabled={isRefreshing}
                         className="p-2 rounded-lg hover:bg-[#1A2428] transition-colors disabled:opacity-50"
                     >
-                        <RefreshCw className={`w-4 h-4 text-[#9FA6A3] ${isLoading ? "animate-spin" : ""}`} />
+                        <RefreshCw className={`w-4 h-4 text-[#9FA6A3] ${isRefreshing ? "animate-spin" : ""}`} />
                     </button>
                 </div>
             </CardHeader>
             <CardContent>
                 {trades.length === 0 && !isLoading ? (
-                    <div className="flex items-center justify-center h-[300px] text-[#5F6A6E]">
-                        No trade data available
+                    <div className="flex flex-col items-center justify-center h-[300px] text-center">
+                        <p className="text-[#5F6A6E] mb-2">No trades yet</p>
+                        <p className="text-xs text-[#5F6A6E]">Chart will populate after the first buy/sell transaction</p>
                     </div>
                 ) : (
                     <div ref={chartContainerRef} className="w-full" />

@@ -9,10 +9,11 @@ import { getSolscanAccountUrl } from "@/lib/format"
 interface WalletDistributionProps {
     holdings: WalletHolding[]
     isLoading: boolean
+    isRefreshing: boolean
     onRefresh: () => void
 }
 
-export function WalletDistribution({ holdings, isLoading, onRefresh }: WalletDistributionProps) {
+export function WalletDistribution({ holdings, isLoading, isRefreshing, onRefresh }: WalletDistributionProps) {
 
     const formatBalance = (balance: number) => {
         if (balance >= 1_000_000) return (balance / 1_000_000).toFixed(2) + "M"
@@ -40,10 +41,10 @@ export function WalletDistribution({ holdings, isLoading, onRefresh }: WalletDis
                     </div>
                     <button
                         onClick={onRefresh}
-                        disabled={isLoading}
+                        disabled={isRefreshing}
                         className="p-2 rounded-lg hover:bg-[#1A2428] transition-colors disabled:opacity-50"
                     >
-                        <RefreshCw className={`w-4 h-4 text-[#9FA6A3] ${isLoading ? "animate-spin" : ""}`} />
+                        <RefreshCw className={`w-4 h-4 text-[#9FA6A3] ${isRefreshing ? "animate-spin" : ""}`} />
                     </button>
                 </div>
             </CardHeader>

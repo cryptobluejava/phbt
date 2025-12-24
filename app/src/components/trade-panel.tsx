@@ -93,9 +93,11 @@ export function TradePanel({ mint, onTradeComplete, className }: TradePanelProps
 
     if (activeTab === "buy") {
       const solAmount = Number(amount) * LAMPORTS_PER_SOL
+      // Use effective SOL reserve (real + virtual) for price calculations
+      const effectiveSolReserve = pool.reserveTwo.toNumber() + (pool.virtualSolReserve?.toNumber() || 0)
       const tokensOut = calculateBuyOutput(
         solAmount,
-        pool.reserveTwo.toNumber(),
+        effectiveSolReserve,
         pool.reserveOne.toNumber(),
         feePct
       )
@@ -105,10 +107,12 @@ export function TradePanel({ mint, onTradeComplete, className }: TradePanelProps
       setTaxAmount(0)
     } else {
       const tokenAmount = Number(amount) * 1_000_000
+      // Use effective SOL reserve (real + virtual) for price calculations
+      const effectiveSolReserve = pool.reserveTwo.toNumber() + (pool.virtualSolReserve?.toNumber() || 0)
       const solOut = calculateSellOutput(
         tokenAmount,
         pool.reserveOne.toNumber(),
-        pool.reserveTwo.toNumber(),
+        effectiveSolReserve,
         feePct
       )
       setEstimatedOutput(solOut)
@@ -193,7 +197,28 @@ export function TradePanel({ mint, onTradeComplete, className }: TradePanelProps
         publicKey
       )
 
+      // Simulate transaction first to get detailed error logs
+      console.log("Simulating transaction...")
+      try {
+        const simulation = await connection.simulateTransaction(transaction)
+        console.log("Simulation result:", simulation.value)
+        if (simulation.value.err) {
+          console.error("Simulation failed:", simulation.value.logs)
+          throw new Error(`Simulation failed: ${JSON.stringify(simulation.value.err)}\n\nLogs:\n${simulation.value.logs?.join('\n')}`)
+        }
+        console.log("Simulation success! Logs:", simulation.value.logs)
+      } catch (simErr: unknown) {
+        const simError = simErr as Error
+        console.error("Simulation error:", simError)
+        // If it's already a formatted error, rethrow
+        if (simError.message?.includes("Simulation failed:")) {
+          throw simError
+        }
+        throw new Error(`Transaction simulation error: ${simError.message}`)
+      }
+
       // Send transaction via wallet adapter
+      console.log("Sending transaction...")
       const signature = await sendTransaction(transaction, connection)
 
       // Wait for confirmation
@@ -213,7 +238,21 @@ export function TradePanel({ mint, onTradeComplete, className }: TradePanelProps
 
     } catch (error: unknown) {
       console.error("Swap error:", error)
-      const errorMessage = error instanceof Error ? error.message : "Transaction failed"
+      const err = error as Error & { logs?: string[] }
+      let errorMessage = err.message || "Transaction failed"
+
+      // Parse common Anchor errors
+      if (errorMessage.includes("0x1")) errorMessage = "Insufficient funds or account not found"
+      if (errorMessage.includes("0x7d6")) errorMessage = "Constraint violation (seeds mismatch)"
+      if (errorMessage.includes("ConstraintSeeds")) errorMessage = "PDA seeds constraint failed - check account derivation"
+      if (errorMessage.includes("Unauthorized")) errorMessage = "Unauthorized: admin check failed"
+      if (errorMessage.includes("AccountNotInitialized")) errorMessage = "Account not initialized"
+
+      // Show logs if available
+      if (err.logs) {
+        console.error("Transaction logs:", err.logs)
+      }
+
       alert(`Swap failed: ${errorMessage}`)
     } finally {
       setIsLoading(false)

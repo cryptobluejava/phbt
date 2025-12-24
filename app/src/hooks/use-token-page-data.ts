@@ -38,6 +38,7 @@ export interface TokenPageData {
     trades: Trade[]
     holdings: WalletHolding[]
     isLoading: boolean
+    isRefreshing: boolean // True only during manual refresh (button click)
     hasFetched: boolean // Track if we've done initial fetch
     error: string | null
 }
@@ -49,18 +50,31 @@ export function useTokenPageData(mint: PublicKey) {
         trades: [],
         holdings: [],
         isLoading: true,
+        isRefreshing: false,
         hasFetched: false,
         error: null,
     })
     const fetchingRef = useRef(false)
     const mintKeyRef = useRef(mint.toBase58())
 
-    const fetchAllData = useCallback(async () => {
+    const fetchAllData = useCallback(async (isManualRefresh = false) => {
         // Prevent duplicate fetches
         if (fetchingRef.current) return
         fetchingRef.current = true
 
-        setData(prev => ({ ...prev, isLoading: true, error: null }))
+        // Set loading state based on type of fetch
+        if (isManualRefresh) {
+            // Manual refresh: always show the refresh spinner
+            setData(prev => ({ ...prev, isRefreshing: true, error: null }))
+        } else {
+            // Auto or initial: only show loading spinner if not yet fetched
+            setData(prev => {
+                if (!prev.hasFetched) {
+                    return { ...prev, isLoading: true, error: null }
+                }
+                return prev
+            })
+        }
 
         try {
             // ============ STEP 1: Fetch Token Metadata ============
@@ -241,6 +255,7 @@ export function useTokenPageData(mint: PublicKey) {
                 trades,
                 holdings,
                 isLoading: false,
+                isRefreshing: false,
                 hasFetched: true, // Mark that we've completed initial fetch
                 error: null,
             })
@@ -250,6 +265,7 @@ export function useTokenPageData(mint: PublicKey) {
             setData(prev => ({
                 ...prev,
                 isLoading: false,
+                isRefreshing: false,
                 hasFetched: true, // Even on error, mark as fetched to prevent infinite retry
                 error: "Failed to fetch token data",
             }))
@@ -267,6 +283,7 @@ export function useTokenPageData(mint: PublicKey) {
                 trades: [],
                 holdings: [],
                 isLoading: true,
+                isRefreshing: false,
                 hasFetched: false,
                 error: null,
             })

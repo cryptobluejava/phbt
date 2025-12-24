@@ -15,6 +15,7 @@ export interface LiquidityPool {
   totalSupply: BN;
   reserveOne: BN;
   reserveTwo: BN;
+  virtualSolReserve: BN; // Virtual SOL for price calculations (0 for old pools)
   bump: number;
 }
 
@@ -61,6 +62,7 @@ export const IDL = {
           { name: "totalSupply", type: "u64" },
           { name: "reserveOne", type: "u64" },
           { name: "reserveTwo", type: "u64" },
+          { name: "virtualSolReserve", type: "u64" },
           { name: "bump", type: "u8" }
         ]
       }
@@ -101,10 +103,11 @@ export async function fetchCurveConfig(
     if (!accountInfo) return null;
 
     // Parse account data (skip 8-byte discriminator)
+    // CurveConfiguration layout: fees:u16, treasury:Pubkey, paperhand_tax_bps:u16, admin:Pubkey, default_virtual_sol:u64
     const data = accountInfo.data.slice(8);
-    const fees = data.readDoubleLE(0);
-    const treasury = new PublicKey(data.slice(8, 40));
-    const paperhandTaxBps = data.readUInt16LE(40);
+    const fees = data.readUInt16LE(0);  // u16, 2 bytes
+    const treasury = new PublicKey(data.slice(2, 34));  // Pubkey, 32 bytes
+    const paperhandTaxBps = data.readUInt16LE(34);  // u16, 2 bytes
 
     return { fees, treasury, paperhandTaxBps };
   } catch (e) {
@@ -114,7 +117,7 @@ export async function fetchCurveConfig(
 }
 
 /**
- * Fetch liquidity pool
+ * Fetch liquidity pool - supports both old (97-byte) and new (105-byte) formats
  */
 export async function fetchPool(
   connection: Connection,
@@ -130,9 +133,15 @@ export async function fetchPool(
     const totalSupply = new BN(data.slice(64, 72), 'le');
     const reserveOne = new BN(data.slice(72, 80), 'le');
     const reserveTwo = new BN(data.slice(80, 88), 'le');
-    const bump = data[88];
 
-    return { tokenOne, tokenTwo, totalSupply, reserveOne, reserveTwo, bump };
+    // Detect format by account size: old = 97, new = 105
+    const isNewFormat = accountInfo.data.length === 105;
+    const virtualSolReserve = isNewFormat
+      ? new BN(data.slice(88, 96), 'le')
+      : new BN(0);
+    const bump = isNewFormat ? data[96] : data[88];
+
+    return { tokenOne, tokenTwo, totalSupply, reserveOne, reserveTwo, virtualSolReserve, bump };
   } catch (e) {
     // Silent fail - account may not exist yet
     return null;
@@ -175,14 +184,14 @@ export function calculateSwapOutput(
   feePct: number = 1
 ): number {
   if (reserveIn === 0 || reserveOut === 0) return 0;
-  
+
   // Apply fee
   const adjustedAmountIn = amountIn * (1 - feePct / 100);
-  
+
   // Constant product formula
   const numerator = reserveOut * adjustedAmountIn;
   const denominator = reserveIn + adjustedAmountIn;
-  
+
   return Math.floor(numerator / denominator);
 }
 

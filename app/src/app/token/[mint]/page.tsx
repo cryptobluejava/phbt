@@ -32,11 +32,14 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     }
 
     // Centralized data fetching - all RPC calls happen here
-    const { metadata, trades, holdings, isLoading, refetch } = useTokenPageData(mint)
+    const { metadata, trades, holdings, isLoading, isRefreshing, hasFetched, refetch } = useTokenPageData(mint)
+
+    // Wrapper for manual refresh that passes true to show the spinner
+    const manualRefetch = () => refetch(true)
 
     const handleTradeComplete = () => {
         setRefreshKey(prev => prev + 1)
-        refetch()
+        manualRefetch()
     }
 
     return (
@@ -70,18 +73,20 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                         </div>
                     </div>
 
-                    {/* Price Chart - Full width */}
+                    {/* Market Cap Chart - Full width */}
                     <div className="mt-8">
                         <TokenChart
                             trades={trades}
+                            totalSupply={metadata?.totalSupply || 0}
                             isLoading={isLoading}
-                            onRefresh={refetch}
+                            isRefreshing={isRefreshing}
+                            onRefresh={manualRefetch}
                         />
                     </div>
 
                     {/* Trades Section - Full width below columns */}
                     <div className="mt-8">
-                        <TradesTable mint={mint} trades={trades} isLoading={isLoading} onRefresh={refetch} />
+                        <TradesTable mint={mint} trades={trades} isLoading={isLoading} isRefreshing={isRefreshing} onRefresh={manualRefetch} />
                     </div>
 
                     {/* Wallet Distribution - Full width */}
@@ -89,7 +94,8 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                         <WalletDistribution
                             holdings={holdings}
                             isLoading={isLoading}
-                            onRefresh={refetch}
+                            isRefreshing={isRefreshing}
+                            onRefresh={manualRefetch}
                         />
                     </div>
                 </div>

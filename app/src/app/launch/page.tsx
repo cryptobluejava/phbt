@@ -34,9 +34,9 @@ export default function LaunchPage() {
     // Removed handleImageChange as we now use direct URI input
 
     const derivePDAs = useCallback((symbolStr: string) => {
-        // Derive mint PDA
+        // Derive mint PDA - must match program: seeds = [b"mint", symbol.as_bytes(), creator.key().as_ref()]
         const [mint] = PublicKey.findProgramAddressSync(
-            [Buffer.from("mint"), Buffer.from(symbolStr)],
+            [Buffer.from("mint"), Buffer.from(symbolStr), publicKey!.toBuffer()],
             PROGRAM_ID
         )
 

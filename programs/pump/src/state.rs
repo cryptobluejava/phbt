@@ -17,15 +17,19 @@ pub struct CurveConfiguration {
     pub paperhand_tax_bps: u16,
     /// Admin authority for updating config
     pub admin: Pubkey,
+    /// Default virtual SOL reserve for new pools (in lamports)
+    /// This creates virtual liquidity for better price curves
+    /// 50 SOL = 50_000_000_000 lamports
+    pub default_virtual_sol: u64,
 }
 
 impl CurveConfiguration {
     pub const SEED: &'static str = "CurveConfiguration";
     pub const TREASURY_VAULT_SEED: &'static str = "treasury_vault";
 
-    // Discriminator (8) + u16 (2) + Pubkey (32) + u16 (2) + Pubkey (32) + padding (6)
-    // 8 + 2 + 32 + 2 + 32 + 6 = 82
-    pub const ACCOUNT_SIZE: usize = 8 + 2 + 32 + 2 + 32 + 6;
+    // Discriminator (8) + u16 (2) + Pubkey (32) + u16 (2) + Pubkey (32) + u64 (8) + padding (2)
+    // 8 + 2 + 32 + 2 + 32 + 8 + 2 = 86
+    pub const ACCOUNT_SIZE: usize = 8 + 2 + 32 + 2 + 32 + 8 + 2;
 
     pub fn new(fees: u16, treasury: Pubkey, paperhand_tax_bps: u16, admin: Pubkey) -> Self {
         Self { 
@@ -33,6 +37,7 @@ impl CurveConfiguration {
             treasury,
             paperhand_tax_bps,
             admin,
+            default_virtual_sol: 50_000_000_000, // 50 SOL default
         }
     }
 }
@@ -139,7 +144,8 @@ pub struct LiquidityPool {
     pub token_two: Pubkey, // Public key of the second token in the pool
     pub total_supply: u64, // Total supply of liquidity tokens
     pub reserve_one: u64,  // Reserve amount of token_one in the pool
-    pub reserve_two: u64,  // Reserve amount of token_two in the pool
+    pub reserve_two: u64,  // Reserve amount of token_two (SOL) in the pool
+    pub virtual_sol_reserve: u64, // Virtual SOL reserve for price calculation
     pub bump: u8,          // Nonce for the program-derived address
 }
 
@@ -147,28 +153,25 @@ impl LiquidityPool {
     pub const POOL_SEED_PREFIX: &'static str = "liquidity_pool";
 
     // Discriminator (8) + Pubkey (32) + Pubkey (32) + totalsupply (8)
-    // + reserve one (8) + reserve two (8) + Bump (1)
-    pub const ACCOUNT_SIZE: usize = 8 + 32 + 32 + 8 + 8 + 8 + 1;
-
-    // Helper function to generate a seed for PDAs based on token public keys
-    // pub fn generate_seed(token_one: Pubkey, token_two: Pubkey) -> String {
-    //     if token_one > token_two {
-    //         format!("{}{}", token_one.to_string(), token_two.to_string())
-    //     } else {
-    //         format!("{}{}", token_two.to_string(), token_one.to_string())
-    //     }
-    // }
+    // + reserve one (8) + reserve two (8) + virtual_sol_reserve (8) + Bump (1)
+    pub const ACCOUNT_SIZE: usize = 8 + 32 + 32 + 8 + 8 + 8 + 8 + 1;
 
     // Constructor to initialize a LiquidityPool with two tokens and a bump for the PDA
-    pub fn new(token_one: Pubkey, bump: u8) -> Self {
+    pub fn new(token_one: Pubkey, bump: u8, virtual_sol: u64) -> Self {
         Self {
             token_one: token_one,
             token_two: token_one,
             total_supply: 0_u64,
             reserve_one: 0_u64,
             reserve_two: 0_u64,
+            virtual_sol_reserve: virtual_sol,
             bump: bump,
         }
+    }
+    
+    /// Get effective SOL reserve (real + virtual) for price calculations
+    pub fn effective_sol_reserve(&self) -> u64 {
+        self.reserve_two.saturating_add(self.virtual_sol_reserve)
     }
 }
 

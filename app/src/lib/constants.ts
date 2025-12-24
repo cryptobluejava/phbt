@@ -6,21 +6,26 @@ import { PublicKey } from "@solana/web3.js";
 // For local dev: Create a .env.local file with these values
 // ============================================================================
 
-// Network: "mainnet-beta" or "devnet"
-export const NETWORK = process.env.NEXT_PUBLIC_NETWORK || "mainnet-beta";
+// Network: "mainnet-beta", "devnet", or "localnet"
+// If NEXT_PUBLIC_NETWORK is not set, default based on NODE_ENV:
+// - development -> localnet
+// - production -> mainnet-beta
+export const NETWORK = process.env.NEXT_PUBLIC_NETWORK || (
+    process.env.NODE_ENV === "development" ? "localnet" : "mainnet-beta"
+);
 
-// RPC endpoint - Use a reliable RPC provider for mainnet (Helius, QuickNode, etc.)
+// RPC endpoint
 export const RPC_ENDPOINT = process.env.NEXT_PUBLIC_RPC_ENDPOINT || (
-    NETWORK === "mainnet-beta"
-        ? "https://api.mainnet-beta.solana.com"
-        : "https://api.devnet.solana.com"
+    NETWORK === "mainnet-beta" ? "https://api.mainnet-beta.solana.com" :
+        NETWORK === "devnet" ? "https://api.devnet.solana.com" :
+            "http://127.0.0.1:8899" // localnet default
 );
 
 // WebSocket endpoint
 export const WS_ENDPOINT = process.env.NEXT_PUBLIC_WS_ENDPOINT || (
-    NETWORK === "mainnet-beta"
-        ? "wss://api.mainnet-beta.solana.com"
-        : "wss://api.devnet.solana.com"
+    NETWORK === "mainnet-beta" ? "wss://api.mainnet-beta.solana.com" :
+        NETWORK === "devnet" ? "wss://api.devnet.solana.com" :
+            "ws://127.0.0.1:8900" // localnet default
 );
 
 // ============================================================================
@@ -29,8 +34,11 @@ export const WS_ENDPOINT = process.env.NEXT_PUBLIC_WS_ENDPOINT || (
 // ============================================================================
 
 // Program ID (your deployed Solana program)
+// Devnet (NEW): DorUpzxXyF9VMGxdaVmBtCtg2SDnnm4pY3Bf9FFFKK6a (with virtual liquidity, clean state)
+// Devnet (OLD): 4dZia69H7vGWpJNbzcMP83TaWKFbDyWDRWe1stHDHrMe (config issue)
+// Mainnet: 8XQAVjtT1QSYgVp8WzhVdwuSvGfDX9UifZupiLvBe2Lh (old version)
 export const PROGRAM_ID = new PublicKey(
-    process.env.NEXT_PUBLIC_PROGRAM_ID || "8XQAVjtT1QSYgVp8WzhVdwuSvGfDX9UifZupiLvBe2Lh"
+    process.env.NEXT_PUBLIC_PROGRAM_ID || "DorUpzxXyF9VMGxdaVmBtCtg2SDnnm4pY3Bf9FFFKK6a"
 );
 
 // Treasury wallet - where Paper Hand Tax goes

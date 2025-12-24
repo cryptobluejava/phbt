@@ -22,9 +22,9 @@ export interface LaunchParams {
  * Derive all PDAs needed for the launch instruction
  */
 export function getLaunchPDAs(symbol: string, creator: PublicKey) {
-    // Mint PDA
+    // Mint PDA - must match program: seeds = [b"mint", symbol.as_bytes(), creator.key().as_ref()]
     const [mint, mintBump] = PublicKey.findProgramAddressSync(
-        [Buffer.from("mint"), Buffer.from(symbol)],
+        [Buffer.from("mint"), Buffer.from(symbol), creator.toBuffer()],
         PROGRAM_ID
     );
 
@@ -151,6 +151,7 @@ const SWAP_DISCRIMINATOR = Buffer.from([248, 198, 158, 145, 225, 117, 135, 200])
 export interface SwapParams {
     amount: bigint;
     style: number; // 1 = SELL, 2 = BUY
+    minAmountOut?: bigint; // Slippage protection (optional, defaults to 0)
 }
 
 /**
@@ -175,7 +176,7 @@ export function getSwapPDAs(mint: PublicKey, user: PublicKey) {
         PROGRAM_ID
     );
 
-    // Treasury Wallet (User provided)
+    // Treasury Wallet (from centralized constants - same address used by program config)
     const treasuryVault = TREASURY_WALLET;
 
     // User Position PDA
@@ -255,7 +256,7 @@ export function buildSwapInstruction(
 }
 
 /**
- * Create a swap transaction
+ * Create a swap transaction using Anchor IDL
  * Automatically creates user token account if it doesn't exist
  */
 export async function createSwapTransaction(
@@ -266,6 +267,21 @@ export async function createSwapTransaction(
 ): Promise<Transaction> {
     const { ComputeBudgetProgram } = await import("@solana/web3.js");
     const { createAssociatedTokenAccountInstruction } = await import("@solana/spl-token");
+    const { AnchorProvider, Program } = await import("@coral-xyz/anchor");
+
+    // Setup minimal Anchor Provider
+    const provider = new AnchorProvider(
+        connection,
+        {
+            publicKey: user,
+            signTransaction: async (tx) => tx,
+            signAllTransactions: async (txs) => txs,
+        },
+        AnchorProvider.defaultOptions()
+    );
+
+    // Initialize Program with IDL
+    const program = new Program(IDL as Idl, provider);
 
     const pdas = getSwapPDAs(mint, user);
     const transaction = new Transaction();
@@ -291,8 +307,30 @@ export async function createSwapTransaction(
         }
     }
 
-    // Add swap instruction
-    const swapInstruction = buildSwapInstruction(params, mint, user);
+    // Build swap instruction using Anchor
+    const swapInstruction = await program.methods
+        .swap(
+            new BN(params.amount.toString()),
+            new BN(params.style),
+            new BN(params.minAmountOut?.toString() || "0") // min_amount_out (0 = no slippage protection)
+        )
+        .accounts({
+            dexConfigurationAccount: pdas.curveConfig,
+            pool: pdas.pool,
+            globalAccount: pdas.global,
+            treasuryVault: pdas.treasuryVault,
+            userPosition: pdas.userPosition,
+            mintTokenOne: mint,
+            poolTokenAccountOne: pdas.poolTokenAccount,
+            userTokenAccountOne: pdas.userTokenAccount,
+            user: user,
+            rent: SYSVAR_RENT_PUBKEY,
+            systemProgram: SystemProgram.programId,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        })
+        .instruction();
+
     transaction.add(swapInstruction);
 
     const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();

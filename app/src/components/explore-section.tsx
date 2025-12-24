@@ -73,19 +73,37 @@ export function ExploreSection() {
     const fetchLaunchedCoins = useCallback(async () => {
         setIsLoading(true)
         try {
-            // LiquidityPool account size: 8 + 32 + 32 + 8 + 8 + 8 + 1 = 97 bytes
-            const POOL_ACCOUNT_SIZE = 97
+            // Support both old (97 bytes) and new (105 bytes) pool formats
+            // Old: 8 + 32 + 32 + 8 + 8 + 8 + 1 = 97 bytes (no virtual_sol_reserve)
+            // New: 8 + 32 + 32 + 8 + 8 + 8 + 8 + 1 = 105 bytes (with virtual_sol_reserve)
+            const OLD_POOL_SIZE = 97
+            const NEW_POOL_SIZE = 105
 
-            const accounts = await connection.getProgramAccounts(PROGRAM_ID, {
-                filters: [{ dataSize: POOL_ACCOUNT_SIZE }]
-            })
+            // Fetch both old and new pool formats
+            const [oldAccounts, newAccounts] = await Promise.all([
+                connection.getProgramAccounts(PROGRAM_ID, {
+                    filters: [{ dataSize: OLD_POOL_SIZE }]
+                }),
+                connection.getProgramAccounts(PROGRAM_ID, {
+                    filters: [{ dataSize: NEW_POOL_SIZE }]
+                })
+            ])
+
+            const allAccounts = [
+                ...oldAccounts.map(a => ({ ...a, isNewFormat: false })),
+                ...newAccounts.map(a => ({ ...a, isNewFormat: true }))
+            ]
 
             const parsedCoins: LaunchedCoin[] = []
 
-            for (const { pubkey, account } of accounts) {
+            for (const { pubkey, account, isNewFormat } of allAccounts) {
                 try {
                     const data = account.data.slice(8)
                     const tokenOne = new PublicKey(data.slice(0, 32))
+
+                    // Parse reserves - offsets are same for both formats:
+                    // token_one: 0-32, token_two: 32-64, total_supply: 64-72, 
+                    // reserve_one: 72-80, reserve_two: 80-88
                     const reserveOne = new BN(data.slice(72, 80), 'le')
                     const reserveTwo = new BN(data.slice(80, 88), 'le')
 

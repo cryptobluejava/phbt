@@ -67,20 +67,18 @@ pub fn swap(ctx: Context<Swap>, amount: u64, style: u64, min_amount_out: u64) ->
         // style == 1 means user sends tokens to pool and receives SOL
         
         // Calculate SOL output before any tax
-        // Calculate SOL output before any tax
-        // Constant product: (reserve_one + adjusted_amount) * (reserve_two - amount_out) = reserve_one * reserve_two
-        // (reserve_two - amount_out) = (reserve_one * reserve_two) / (reserve_one + adjusted_amount)
-        // amount_out = reserve_two - (reserve_one * reserve_two) / (reserve_one + adjusted_amount)
+        // Uses EFFECTIVE SOL reserve (real + virtual) for price calculation
+        // Constant product: (reserve_one + adjusted_amount) * (effective_sol - amount_out) = reserve_one * effective_sol
         
         let reserve_one = pool.reserve_one as u128;
-        let reserve_two = pool.reserve_two as u128;
+        let effective_sol = pool.effective_sol_reserve() as u128;  // real + virtual
         let adjusted_amt = adjusted_amount as u128;
 
         let denominator = reserve_one.checked_add(adjusted_amt).ok_or(CustomError::OverflowOrUnderflowOccurred)?;
-        let k = reserve_one.checked_mul(reserve_two).ok_or(CustomError::MathOverflow)?;
+        let k = reserve_one.checked_mul(effective_sol).ok_or(CustomError::MathOverflow)?;
         
-        let new_reserve_two = k.checked_div(denominator).ok_or(CustomError::MathOverflow)?;
-        let sol_out_before_tax = (reserve_two.checked_sub(new_reserve_two).ok_or(CustomError::MathOverflow)?) as u64;
+        let new_effective_sol = k.checked_div(denominator).ok_or(CustomError::MathOverflow)?;
+        let sol_out_before_tax = (effective_sol.checked_sub(new_effective_sol).ok_or(CustomError::MathOverflow)?) as u64;
         
         // Slippage Check
         if sol_out_before_tax < min_amount_out {
@@ -206,14 +204,14 @@ pub fn swap(ctx: Context<Swap>, amount: u64, style: u64, min_amount_out: u64) ->
         // BUY: User sends SOL to buy tokens
         // style == 2 (or any other) means user sends SOL and receives tokens
         
-        // Constant product similar to above
+        // Uses EFFECTIVE SOL reserve (real + virtual) for price calculation
         
         let reserve_one = pool.reserve_one as u128;
-        let reserve_two = pool.reserve_two as u128;
+        let effective_sol = pool.effective_sol_reserve() as u128;  // real + virtual
         let adjusted_amt = adjusted_amount as u128;
 
-        let denominator = reserve_two.checked_add(adjusted_amt).ok_or(CustomError::OverflowOrUnderflowOccurred)?;
-        let k = reserve_one.checked_mul(reserve_two).ok_or(CustomError::MathOverflow)?;
+        let denominator = effective_sol.checked_add(adjusted_amt).ok_or(CustomError::OverflowOrUnderflowOccurred)?;
+        let k = reserve_one.checked_mul(effective_sol).ok_or(CustomError::MathOverflow)?;
         
         let new_reserve_one = k.checked_div(denominator).ok_or(CustomError::MathOverflow)?;
         let tokens_out = (reserve_one.checked_sub(new_reserve_one).ok_or(CustomError::MathOverflow)?) as u64;
