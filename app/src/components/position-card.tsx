@@ -66,12 +66,14 @@ export function PositionCard({ mint, className }: PositionCardProps) {
   const totalSol = position?.totalSol.toNumber() || 0
 
   // Calculate current value based on pool reserves
+  // Use effective SOL reserve (real + virtual) for accurate price calculation
   let currentValue = 0
   if (pool && totalTokens > 0) {
+    const effectiveSolReserve = pool.reserveTwo.toNumber() + (pool.virtualSolReserve?.toNumber() || 0)
     currentValue = calculateSellOutput(
       totalTokens,
       pool.reserveOne.toNumber(),
-      pool.reserveTwo.toNumber(),
+      effectiveSolReserve,
       1 // 1% fee
     )
   }
