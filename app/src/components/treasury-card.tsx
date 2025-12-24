@@ -8,7 +8,7 @@ import { Copy, Check, ExternalLink, Vault, Percent, Shield, RefreshCw } from "lu
 import { formatLamportsToSol, formatPercentage, shortenPubkey, getSolscanAccountUrl } from "@/lib/format"
 import { getCurveConfigPDA } from "@/lib/pdas"
 import { fetchCurveConfig, CurveConfiguration } from "@/lib/solana"
-import { PROGRAM_ID, DEFAULT_PAPERHAND_TAX_BPS, TREASURY_WALLET } from "@/lib/constants"
+import { PROGRAM_ID, DEFAULT_PAPERHAND_TAX_BPS, TREASURY_WALLET, REFRESH_INTERVALS } from "@/lib/constants"
 
 interface TreasuryCardProps {
   className?: string
@@ -47,7 +47,7 @@ export function TreasuryCard({ className }: TreasuryCardProps) {
 
   useEffect(() => {
     fetchData()
-    const interval = setInterval(fetchData, 30000)
+    const interval = setInterval(fetchData, REFRESH_INTERVALS.TREASURY)
     return () => clearInterval(interval)
   }, [fetchData])
 

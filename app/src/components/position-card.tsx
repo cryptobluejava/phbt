@@ -9,14 +9,16 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/comp
 import { formatLamportsToSol, formatTokenAmount } from "@/lib/format"
 import { getPoolPDA, getUserPositionPDA } from "@/lib/pdas"
 import { fetchPool, fetchUserPosition, LiquidityPool, UserPosition, calculateSellOutput } from "@/lib/solana"
+import { REFRESH_INTERVALS } from "@/lib/constants"
 import { TrendingDown, TrendingUp, Wallet, Info, AlertTriangle, RefreshCw } from "lucide-react"
 
 interface PositionCardProps {
   mint: PublicKey | null
+  tokenSymbol?: string
   className?: string
 }
 
-export function PositionCard({ mint, className }: PositionCardProps) {
+export function PositionCard({ mint, tokenSymbol = "TOKEN", className }: PositionCardProps) {
   const { connection } = useConnection()
   const { publicKey, connected } = useWallet()
 
@@ -57,7 +59,7 @@ export function PositionCard({ mint, className }: PositionCardProps) {
 
   useEffect(() => {
     fetchData()
-    const interval = setInterval(fetchData, 15000)
+    const interval = setInterval(fetchData, REFRESH_INTERVALS.POSITION)
     return () => clearInterval(interval)
   }, [fetchData])
 
@@ -175,7 +177,7 @@ export function PositionCard({ mint, className }: PositionCardProps) {
                 <div className="flex justify-between items-center mb-3">
                   <span className="text-sm text-[#5F6A6E]">Holdings</span>
                   <span className="text-xl font-medium text-[#E9E1D8] text-value">
-                    {formatTokenAmount(totalTokens)} PHB
+                    {formatTokenAmount(totalTokens)} {tokenSymbol}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">

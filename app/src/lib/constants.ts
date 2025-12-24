@@ -85,3 +85,29 @@ export const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkY
 // HELPER: Check if we're on mainnet
 // ============================================================================
 export const IS_MAINNET = NETWORK === "mainnet-beta";
+
+// ============================================================================
+// REFRESH INTERVALS (slower on devnet to avoid rate limiting)
+// ============================================================================
+const IS_DEVNET = NETWORK === "devnet";
+
+export const REFRESH_INTERVALS = {
+    // Balance refresh (header)
+    BALANCE: IS_DEVNET ? 30_000 : 10_000,           // 30s devnet, 10s mainnet
+    // Trade panel data
+    TRADE_PANEL: IS_DEVNET ? 45_000 : 15_000,        // 45s devnet, 15s mainnet
+    // Position card
+    POSITION: IS_DEVNET ? 45_000 : 15_000,           // 45s devnet, 15s mainnet
+    // Token page data (chart, trades, holdings)
+    TOKEN_PAGE: IS_DEVNET ? 60_000 : 30_000,         // 60s devnet, 30s mainnet
+    // Treasury card
+    TREASURY: IS_DEVNET ? 60_000 : 30_000,           // 60s devnet, 30s mainnet
+    // Activity feed
+    ACTIVITY: IS_DEVNET ? 60_000 : 30_000,           // 60s devnet, 30s mainnet
+    // Explore section (coin list)
+    EXPLORE: IS_DEVNET ? 120_000 : 60_000,           // 120s devnet, 60s mainnet
+    // SOL price from CoinGecko
+    SOL_PRICE: IS_DEVNET ? 120_000 : 60_000,         // 120s devnet, 60s mainnet
+    // Leaderboard
+    LEADERBOARD: IS_DEVNET ? 60_000 : 30_000,        // 60s devnet, 30s mainnet
+};

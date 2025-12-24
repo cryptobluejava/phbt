@@ -13,15 +13,17 @@ import { formatLamportsToSol, formatTokenAmount, calculateCostBasisForSale, isLo
 import { getPoolPDA, getUserPositionPDA, getCurveConfigPDA } from "@/lib/pdas"
 import { fetchPool, fetchUserPosition, fetchCurveConfig, calculateBuyOutput, calculateSellOutput, LiquidityPool, UserPosition, CurveConfiguration } from "@/lib/solana"
 import { createSwapTransaction } from "@/lib/program"
+import { REFRESH_INTERVALS } from "@/lib/constants"
 import { AlertTriangle, ArrowDown, ArrowUp, Zap, RefreshCw } from "lucide-react"
 
 interface TradePanelProps {
   mint: PublicKey | null
+  tokenSymbol?: string
   onTradeComplete?: () => void
   className?: string
 }
 
-export function TradePanel({ mint, onTradeComplete, className }: TradePanelProps) {
+export function TradePanel({ mint, tokenSymbol = "TOKEN", onTradeComplete, className }: TradePanelProps) {
   const { connection } = useConnection()
   const { publicKey, connected, sendTransaction } = useWallet()
 
@@ -74,7 +76,7 @@ export function TradePanel({ mint, onTradeComplete, className }: TradePanelProps
 
   useEffect(() => {
     fetchData()
-    const interval = setInterval(fetchData, 15000)
+    const interval = setInterval(fetchData, REFRESH_INTERVALS.TRADE_PANEL)
     return () => clearInterval(interval)
   }, [fetchData])
 
@@ -340,7 +342,7 @@ export function TradePanel({ mint, onTradeComplete, className }: TradePanelProps
                     <span className="text-[#E9E1D8] text-lg text-value">
                       {estimatedOutput > 0 ? formatTokenAmount(estimatedOutput) : "0.00"}
                     </span>
-                    <span className="text-sm text-[#5F6A6E]">PHB</span>
+                    <span className="text-sm text-[#5F6A6E]">{tokenSymbol}</span>
                   </div>
                 </div>
 
@@ -361,7 +363,7 @@ export function TradePanel({ mint, onTradeComplete, className }: TradePanelProps
                   onClick={handleTrade}
                   disabled={!connected || !amount || Number(amount) <= 0 || isLoading}
                 >
-                  {isLoading ? "Processing..." : !connected ? "Connect Wallet" : "Buy PHB"}
+                  {isLoading ? "Processing..." : !connected ? "Connect Wallet" : `Buy ${tokenSymbol}`}
                 </Button>
               </TabsContent>
 
@@ -370,7 +372,7 @@ export function TradePanel({ mint, onTradeComplete, className }: TradePanelProps
                   <div className="flex items-center justify-between">
                     <label className="text-label">You Sell</label>
                     <span className="text-xs text-[#5F6A6E]">
-                      Position: {formatTokenAmount(positionTokens)} PHB
+                      Position: {formatTokenAmount(positionTokens)} {tokenSymbol}
                     </span>
                   </div>
                   <div className="relative">
@@ -391,7 +393,7 @@ export function TradePanel({ mint, onTradeComplete, className }: TradePanelProps
                       >
                         MAX
                       </Button>
-                      <span className="text-sm text-[#5F6A6E]">PHB</span>
+                      <span className="text-sm text-[#5F6A6E]">{tokenSymbol}</span>
                     </div>
                   </div>
                 </div>
@@ -459,7 +461,7 @@ export function TradePanel({ mint, onTradeComplete, className }: TradePanelProps
                   {isLoading ? "Processing..." :
                     !connected ? "Connect Wallet" :
                       positionTokens === 0 ? "No Position" :
-                        isAtLoss ? `Sell (50% Tax Applied)` : "Sell PHB"}
+                        isAtLoss ? `Sell (50% Tax Applied)` : `Sell ${tokenSymbol}`}
                 </Button>
               </TabsContent>
             </Tabs>

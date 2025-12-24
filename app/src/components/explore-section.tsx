@@ -5,7 +5,7 @@ import { useConnection } from "@solana/wallet-adapter-react"
 import { PublicKey } from "@solana/web3.js"
 import { Card, CardContent } from "@/components/ui/card"
 import { RefreshCw, Rocket, ExternalLink } from "lucide-react"
-import { PROGRAM_ID, POOL_SEED_PREFIX, TOKEN_METADATA_PROGRAM_ID } from "@/lib/constants"
+import { PROGRAM_ID, POOL_SEED_PREFIX, TOKEN_METADATA_PROGRAM_ID, REFRESH_INTERVALS } from "@/lib/constants"
 import { formatLamportsToSol } from "@/lib/format"
 import Link from "next/link"
 import { BN } from "bn.js"
@@ -168,7 +168,7 @@ export function ExploreSection() {
 
     useEffect(() => {
         fetchLaunchedCoins()
-        const interval = setInterval(fetchLaunchedCoins, 60000)
+        const interval = setInterval(fetchLaunchedCoins, REFRESH_INTERVALS.EXPLORE)
         return () => clearInterval(interval)
     }, [fetchLaunchedCoins])
 

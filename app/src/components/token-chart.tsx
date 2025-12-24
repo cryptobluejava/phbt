@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { RefreshCw } from "lucide-react"
 import { Trade } from "@/hooks/use-token-page-data"
 import { getSolPrice, formatUSD } from "@/lib/sol-price"
+import { REFRESH_INTERVALS } from "@/lib/constants"
 
 interface TokenChartProps {
     trades: Trade[]
@@ -29,7 +30,7 @@ export function TokenChart({ trades, totalSupply, isLoading, isRefreshing, onRef
             setSolPrice(price)
         }
         fetchPrice()
-        const interval = setInterval(fetchPrice, 60000) // Update every minute
+        const interval = setInterval(fetchPrice, REFRESH_INTERVALS.SOL_PRICE)
         return () => clearInterval(interval)
     }, [])
 

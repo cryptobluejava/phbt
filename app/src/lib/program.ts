@@ -286,6 +286,43 @@ export async function createSwapTransaction(
     const pdas = getSwapPDAs(mint, user);
     const transaction = new Transaction();
 
+    // Log all PDAs for debugging
+    console.log("=== Swap Transaction Debug ===");
+    console.log("User:", user.toBase58());
+    console.log("Mint:", mint.toBase58());
+    console.log("Style:", params.style === 2 ? "BUY" : "SELL");
+    console.log("Amount:", params.amount.toString());
+    console.log("PDAs:");
+    console.log("  - curveConfig:", pdas.curveConfig.toBase58());
+    console.log("  - pool:", pdas.pool.toBase58());
+    console.log("  - global:", pdas.global.toBase58());
+    console.log("  - treasuryVault:", pdas.treasuryVault.toBase58());
+    console.log("  - userPosition:", pdas.userPosition.toBase58());
+    console.log("  - userTokenAccount:", pdas.userTokenAccount.toBase58());
+    console.log("  - poolTokenAccount:", pdas.poolTokenAccount.toBase58());
+
+    // Check if critical accounts exist
+    const [configInfo, poolInfo, globalInfo] = await Promise.all([
+        connection.getAccountInfo(pdas.curveConfig),
+        connection.getAccountInfo(pdas.pool),
+        connection.getAccountInfo(pdas.global),
+    ]);
+
+    console.log("Account status:");
+    console.log("  - curveConfig exists:", !!configInfo, configInfo ? `(${configInfo.data.length} bytes)` : "");
+    console.log("  - pool exists:", !!poolInfo, poolInfo ? `(${poolInfo.data.length} bytes)` : "");
+    console.log("  - global exists:", !!globalInfo, globalInfo ? `(${globalInfo.data.length} bytes)` : "");
+
+    if (!configInfo) {
+        throw new Error("CurveConfiguration account not found! Program may not be initialized.");
+    }
+    if (!poolInfo) {
+        throw new Error("Pool account not found! This token may not have been launched through the platform.");
+    }
+    if (!globalInfo) {
+        throw new Error("Global account not found! Program may not be initialized.");
+    }
+
     // Add compute budget for complex swap instruction
     transaction.add(
         ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }),
@@ -295,7 +332,9 @@ export async function createSwapTransaction(
     // Check if user token account exists, create if not (for buys)
     if (params.style === 2) { // BUY
         const userTokenAccountInfo = await connection.getAccountInfo(pdas.userTokenAccount);
+        console.log("  - userTokenAccount exists:", !!userTokenAccountInfo);
         if (!userTokenAccountInfo) {
+            console.log("Creating user token account...");
             transaction.add(
                 createAssociatedTokenAccountInstruction(
                     user,

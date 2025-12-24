@@ -6,6 +6,7 @@ import { useState, useEffect } from "react"
 import { useWallet, useConnection } from "@solana/wallet-adapter-react"
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
 import { LAMPORTS_PER_SOL } from "@solana/web3.js"
+import { REFRESH_INTERVALS } from "@/lib/constants"
 import { Wallet } from "lucide-react"
 import logo from "@/app/logo.png"
 
@@ -27,7 +28,7 @@ export function Header() {
 
       fetchBalance()
       // Refresh every 10 seconds
-      const interval = setInterval(fetchBalance, 10000)
+      const interval = setInterval(fetchBalance, REFRESH_INTERVALS.BALANCE)
       return () => clearInterval(interval)
     } else {
       setBalance(null)

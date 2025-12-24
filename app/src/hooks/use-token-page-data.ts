@@ -5,7 +5,7 @@ import { useConnection } from "@solana/wallet-adapter-react"
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js"
 import { TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token"
 import { getPoolPDA, getGlobalPDA } from "@/lib/pdas"
-import { TREASURY_WALLET, TOKEN_METADATA_PROGRAM_ID } from "@/lib/constants"
+import { TREASURY_WALLET, TOKEN_METADATA_PROGRAM_ID, REFRESH_INTERVALS } from "@/lib/constants"
 
 export interface Trade {
     signature: string
@@ -292,7 +292,7 @@ export function useTokenPageData(mint: PublicKey) {
         fetchAllData()
 
         // Auto-refresh every 30 seconds
-        const interval = setInterval(fetchAllData, 30000)
+        const interval = setInterval(fetchAllData, REFRESH_INTERVALS.TOKEN_PAGE)
         return () => clearInterval(interval)
     }, [fetchAllData, mint])
 

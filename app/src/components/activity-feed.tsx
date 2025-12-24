@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { useConnection } from "@solana/wallet-adapter-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { TREASURY_WALLET, PROGRAM_ID } from "@/lib/constants"
+import { TREASURY_WALLET, PROGRAM_ID, REFRESH_INTERVALS } from "@/lib/constants"
 import { RefreshCw, Radio } from "lucide-react"
 
 interface Transaction {
@@ -25,7 +25,7 @@ export function ActivityFeed() {
     try {
       // Get recent transactions for the program
       const signatures = await connection.getSignaturesForAddress(PROGRAM_ID, { limit: 10 })
-      
+
       const txs: Transaction[] = []
       for (const sig of signatures.slice(0, 8)) {
         const timeDiff = Date.now() / 1000 - (sig.blockTime || 0)
@@ -34,7 +34,7 @@ export function ActivityFeed() {
         else if (timeDiff < 3600) timeStr = `${Math.floor(timeDiff / 60)}m ago`
         else if (timeDiff < 86400) timeStr = `${Math.floor(timeDiff / 3600)}h ago`
         else timeStr = `${Math.floor(timeDiff / 86400)}d ago`
-        
+
         txs.push({
           signature: sig.signature,
           type: "TX",
@@ -43,7 +43,7 @@ export function ActivityFeed() {
           wallet: sig.signature.slice(0, 4) + "..." + sig.signature.slice(-4),
         })
       }
-      
+
       setTransactions(txs)
     } catch {
       // No transactions or error
@@ -55,7 +55,7 @@ export function ActivityFeed() {
 
   useEffect(() => {
     fetchTransactions()
-    const interval = setInterval(fetchTransactions, 30000) // Refresh every 30s
+    const interval = setInterval(fetchTransactions, REFRESH_INTERVALS.ACTIVITY) // Refresh using config
     return () => clearInterval(interval)
   }, [fetchTransactions])
 

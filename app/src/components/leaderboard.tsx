@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useConnection } from "@solana/wallet-adapter-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { TREASURY_WALLET } from "@/lib/constants"
+import { TREASURY_WALLET, REFRESH_INTERVALS } from "@/lib/constants"
 import { formatLamportsToSol } from "@/lib/format"
 import { Skull, RefreshCw, TrendingDown } from "lucide-react"
 
@@ -26,7 +26,7 @@ export function Leaderboard() {
 
   useEffect(() => {
     fetchData()
-    const interval = setInterval(fetchData, 30000)
+    const interval = setInterval(fetchData, REFRESH_INTERVALS.LEADERBOARD)
     return () => clearInterval(interval)
   }, [fetchData])
 

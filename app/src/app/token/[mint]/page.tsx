@@ -61,6 +61,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                             <TokenCard mint={mint} metadata={metadata} isLoading={isLoading} />
                             <TradePanel
                                 mint={mint}
+                                tokenSymbol={metadata?.symbol}
                                 onTradeComplete={handleTradeComplete}
                                 className="flex-1"
                             />
@@ -68,7 +69,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
 
                         {/* Right column - Position & Treasury */}
                         <div className="flex flex-col gap-6 h-full">
-                            <PositionCard key={`position-${refreshKey}`} mint={mint} className="flex-1" />
+                            <PositionCard key={`position-${refreshKey}`} mint={mint} tokenSymbol={metadata?.symbol} className="flex-1" />
                             <TreasuryCard />
                         </div>
                     </div>
