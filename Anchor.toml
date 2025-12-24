@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-pump = "DorUpzxXyF9VMGxdaVmBtCtg2SDnnm4pY3Bf9FFFKK6a"
+pump = "F6pyw8jcNrKLDhdjkrvfGHskzp64x61FX2ADcbj3Xktw"
 
 [programs.mainnet]
 pump = "8XQAVjtT1QSYgVp8WzhVdwuSvGfDX9UifZupiLvBe2Lh"
