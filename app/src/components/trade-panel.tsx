@@ -24,7 +24,7 @@ interface TradePanelProps {
 
 export function TradePanel({ mint, tokenSymbol = "TOKEN", onTradeComplete, className }: TradePanelProps) {
   const { connection } = useConnection()
-  const { publicKey, connected, sendTransaction } = useWallet()
+  const { publicKey, connected, signTransaction } = useWallet()
 
   const [activeTab, setActiveTab] = useState("buy")
   const [amount, setAmount] = useState("")
@@ -161,7 +161,7 @@ export function TradePanel({ mint, tokenSymbol = "TOKEN", onTradeComplete, class
   }
 
   const handleTrade = async () => {
-    if (!connected || !publicKey || !sendTransaction) {
+    if (!connected || !publicKey || !signTransaction) {
       alert("Please connect your wallet")
       return
     }
@@ -222,9 +222,16 @@ export function TradePanel({ mint, tokenSymbol = "TOKEN", onTradeComplete, class
         throw new Error(`Transaction simulation error: ${simError.message}`)
       }
 
-      // Send transaction via wallet adapter
+      // Sign transaction with wallet, then send directly to RPC (bypass wallet's broadcast)
+      console.log("Signing transaction...")
+      const signedTransaction = await signTransaction(transaction)
+      
       console.log("Sending transaction...")
-      const signature = await sendTransaction(transaction, connection)
+      const signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
+        skipPreflight: false,
+        maxRetries: 5,
+        preflightCommitment: 'confirmed',
+      })
 
       // Wait for confirmation
       const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()

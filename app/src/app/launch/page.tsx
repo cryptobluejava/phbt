@@ -19,7 +19,7 @@ import { useRouter } from "next/navigation"
 export default function LaunchPage() {
     const router = useRouter()
     const { connection } = useConnection()
-    const { publicKey, sendTransaction, connected } = useWallet()
+    const { publicKey, signTransaction, connected } = useWallet()
     const [mounted, setMounted] = useState(false)
 
     const [name, setName] = useState("")
@@ -185,17 +185,29 @@ export default function LaunchPage() {
             setLaunchStep("Preparing transaction...")
             await new Promise(r => setTimeout(r, 2000))
 
-            // Send transaction - let wallet handle simulation
+            // Sign transaction with wallet, then send directly to RPC (bypass wallet's broadcast)
             let signature: string
             try {
-                signature = await sendTransaction(transaction, connection, {
-                    skipPreflight: false, // Let wallet simulate for better UX
+                if (!signTransaction) {
+                    throw new Error("Wallet does not support signing transactions")
+                }
+                
+                setLaunchStep("Please approve in your wallet...")
+                const signedTransaction = await signTransaction(transaction)
+                
+                setLaunchStep("Broadcasting transaction...")
+                // Send directly to our RPC endpoint (bypasses Jupiter/wallet broadcast)
+                signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
+                    skipPreflight: false,
                     maxRetries: 5,
+                    preflightCommitment: 'confirmed',
                 })
                 console.log("Launch transaction sent:", signature)
             } catch (sendErr: any) {
                 // Check if user rejected
-                if (sendErr.message?.includes('User rejected') || sendErr.name === 'WalletSignTransactionError') {
+                if (sendErr.message?.includes('User rejected') || 
+                    sendErr.message?.includes('rejected') ||
+                    sendErr.name === 'WalletSignTransactionError') {
                     throw new Error("Transaction cancelled by user")
                 }
                 // Check for simulation errors
@@ -246,7 +258,7 @@ export default function LaunchPage() {
         } finally {
             setIsLoading(false)
         }
-    }, [publicKey, connected, name, symbol, imageUri, website, twitter, telegram, initialSol, derivePDAs, connection, sendTransaction, router])
+    }, [publicKey, connected, name, symbol, imageUri, website, twitter, telegram, initialSol, derivePDAs, connection, signTransaction, router])
 
     return (
         <TooltipProvider>
