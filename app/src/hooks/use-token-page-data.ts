@@ -121,10 +121,10 @@ export function useTokenPageData(mint: PublicKey) {
                     const uriLen = data.readUInt32LE(offset)
                     const uri = data.slice(offset + 4, offset + 4 + uriLen).toString('utf8').replace(/\0/g, '').trim()
                     
-                    // Parse URI - could be data URI (base64 JSON) or http URL
+                    // Parse URI - could be data URI, http URL, or compact JSON
                     if (uri) {
                         if (uri.startsWith("data:application/json;base64,")) {
-                            // Decode base64 JSON metadata
+                            // Legacy: Decode base64 JSON metadata
                             try {
                                 const base64Data = uri.replace("data:application/json;base64,", "")
                                 const jsonStr = Buffer.from(base64Data, 'base64').toString('utf8')
@@ -143,8 +143,20 @@ export function useTokenPageData(mint: PublicKey) {
                             } catch (e) {
                                 console.error("Failed to parse metadata JSON:", e)
                             }
+                        } else if (uri.startsWith("data:,")) {
+                            // New compact format: data:,{url-encoded-json}
+                            try {
+                                const jsonStr = decodeURIComponent(uri.replace("data:,", ""))
+                                const jsonMeta = JSON.parse(jsonStr)
+                                // Compact keys: w=website, t=twitter, tg=telegram
+                                if (jsonMeta.w) metadata.website = jsonMeta.w
+                                if (jsonMeta.t) metadata.twitter = jsonMeta.t
+                                if (jsonMeta.tg) metadata.telegram = jsonMeta.tg
+                            } catch (e) {
+                                console.error("Failed to parse compact metadata:", e)
+                            }
                         } else if (uri.startsWith("http") && !uri.includes("placeholder-")) {
-                            // Legacy: direct image URL
+                            // Image URL - use as image
                             metadata.image = uri
                         }
                     }

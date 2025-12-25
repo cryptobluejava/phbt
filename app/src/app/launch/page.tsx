@@ -114,21 +114,29 @@ export default function LaunchPage() {
         setError(null)
 
         try {
-            // Create JSON metadata with social links
-            const metadata = {
-                name,
-                symbol,
-                image: imageUri || "",
-                external_url: website || undefined,
-                attributes: [
-                    ...(twitter ? [{ trait_type: "twitter", value: twitter }] : []),
-                    ...(telegram ? [{ trait_type: "telegram", value: telegram }] : []),
-                ].filter(Boolean),
+            // URI must be <= 200 characters (smart contract limit)
+            // Use image URI directly if provided, otherwise use a compact JSON with just social links
+            let uri = ""
+            
+            if (imageUri && imageUri.startsWith("http")) {
+                // If user provided an image URL, use it directly (must be < 200 chars)
+                uri = imageUri.slice(0, 200)
+            } else {
+                // Create minimal JSON with social links (keep it short!)
+                const socialData: Record<string, string> = {}
+                if (website) socialData.w = website
+                if (twitter) socialData.t = twitter
+                if (telegram) socialData.tg = telegram
+                
+                if (Object.keys(socialData).length > 0) {
+                    const json = JSON.stringify(socialData)
+                    const encoded = `data:,${encodeURIComponent(json)}`
+                    // Only use if under 200 chars
+                    uri = encoded.length <= 200 ? encoded : ""
+                }
             }
             
-            // Encode metadata as data URI (base64 JSON)
-            const metadataJson = JSON.stringify(metadata)
-            const uri = `data:application/json;base64,${Buffer.from(metadataJson).toString('base64')}`
+            console.log("URI length:", uri.length, "chars")
 
             const pdas = derivePDAs(symbol)
             const supplyLamports = BigInt(initialSupply) * BigInt(Math.pow(10, decimals))

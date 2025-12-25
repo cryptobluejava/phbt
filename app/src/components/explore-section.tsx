@@ -164,6 +164,9 @@ export function ExploreSection() {
                             } catch (e) {
                                 // Ignore parse errors
                             }
+                        } else if (parsed.uri?.startsWith('data:,')) {
+                            // New compact format - also counts as new metadata
+                            hasNewMetadataFormat = true
                         } else {
                             const isValidImageUrl = parsed.uri &&
                                 parsed.uri.startsWith('http') &&
@@ -172,6 +175,8 @@ export function ExploreSection() {
 
                             if (isValidImageUrl) {
                                 image = parsed.uri
+                                // HTTP image URLs also count as new format
+                                hasNewMetadataFormat = true
                             }
                         }
                     }
