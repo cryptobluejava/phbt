@@ -59,6 +59,7 @@ export function useTokenPageData(mint: PublicKey) {
         error: null,
     })
     const fetchingRef = useRef(false)
+    const hasFetchedRef = useRef(false)
     const mintKeyRef = useRef(mint.toBase58())
 
     const fetchAllData = useCallback(async (isManualRefresh = false) => {
@@ -168,7 +169,7 @@ export function useTokenPageData(mint: PublicKey) {
             // ============ STEP 2: Fetch Trades ============
             // Fetch on first load OR manual refresh (not on auto-refresh to reduce RPC)
             const trades: Trade[] = []
-            const shouldFetchExpensiveData = isManualRefresh || !data.hasFetched
+            const shouldFetchExpensiveData = isManualRefresh || !hasFetchedRef.current
             if (shouldFetchExpensiveData) {
                 try {
                     const [poolPDA] = getPoolPDA(mint)
@@ -310,23 +311,25 @@ export function useTokenPageData(mint: PublicKey) {
             } // End holdings fetch
 
             // Success! Empty arrays are valid - no need to retry
+            hasFetchedRef.current = true
             setData({
                 metadata,
                 trades,
                 holdings,
                 isLoading: false,
                 isRefreshing: false,
-                hasFetched: true, // Mark that we've completed initial fetch
+                hasFetched: true,
                 error: null,
             })
 
         } catch (e) {
             console.error("Data fetch error:", e)
+            hasFetchedRef.current = true // Even on error, mark as fetched
             setData(prev => ({
                 ...prev,
                 isLoading: false,
                 isRefreshing: false,
-                hasFetched: true, // Even on error, mark as fetched to prevent infinite retry
+                hasFetched: true,
                 error: "Failed to fetch token data",
             }))
         } finally {
@@ -338,6 +341,7 @@ export function useTokenPageData(mint: PublicKey) {
         // Reset state when mint changes
         if (mintKeyRef.current !== mint.toBase58()) {
             mintKeyRef.current = mint.toBase58()
+            hasFetchedRef.current = false
             setData({
                 metadata: null,
                 trades: [],
