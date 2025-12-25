@@ -38,12 +38,92 @@ export default function LaunchPage() {
 
     const [isLoading, setIsLoading] = useState(false)
     const [launchStep, setLaunchStep] = useState<string>("")
+    const [symbolTaken, setSymbolTaken] = useState(false)
+    const [checkingSymbol, setCheckingSymbol] = useState(false)
 
     // Fix hydration mismatch
     useEffect(() => {
         setMounted(true)
     }, [])
     const [error, setError] = useState<string | null>(null)
+
+    // Check if symbol already exists
+    const checkSymbolExists = useCallback(async (symbolToCheck: string) => {
+        if (!symbolToCheck || symbolToCheck.length < 2) {
+            setSymbolTaken(false)
+            return
+        }
+        
+        setCheckingSymbol(true)
+        try {
+            // Query all pools from the program (support both old and new pool sizes)
+            const OLD_POOL_SIZE = 97
+            const NEW_POOL_SIZE = 105
+            
+            const [oldPools, newPools] = await Promise.all([
+                connection.getProgramAccounts(PROGRAM_ID, { filters: [{ dataSize: OLD_POOL_SIZE }] }),
+                connection.getProgramAccounts(PROGRAM_ID, { filters: [{ dataSize: NEW_POOL_SIZE }] })
+            ])
+            
+            const allPools = [...oldPools, ...newPools]
+            
+            // For each pool, get the mint and check its metadata
+            for (const account of allPools) {
+                try {
+                    // Pool data starts with token_one (mint) at offset 8
+                    const mintPubkey = new PublicKey(account.account.data.slice(8, 40))
+                    
+                    // Get metadata PDA for this mint
+                    const [metadataPDA] = PublicKey.findProgramAddressSync(
+                        [
+                            Buffer.from("metadata"),
+                            TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+                            mintPubkey.toBuffer(),
+                        ],
+                        TOKEN_METADATA_PROGRAM_ID
+                    )
+                    
+                    const metadataAccount = await connection.getAccountInfo(metadataPDA)
+                    if (metadataAccount) {
+                        // Parse Metaplex metadata format
+                        // Skip: key (1) + update_authority (32) + mint (32) = 65
+                        // Then: name_length (4) + name (32) + symbol_length (4) + symbol (10)
+                        const data = metadataAccount.data
+                        let offset = 1 + 32 + 32 // Skip key, update_authority, mint
+                        offset += 4 // Skip name length
+                        offset += 32 // Skip name (fixed 32 bytes)
+                        offset += 4 // Skip symbol length
+                        const existingSymbol = data.slice(offset, offset + 10).toString('utf8').replace(/\0/g, '').trim()
+                        
+                        if (existingSymbol.toUpperCase() === symbolToCheck.toUpperCase()) {
+                            setSymbolTaken(true)
+                            setCheckingSymbol(false)
+                            return
+                        }
+                    }
+                } catch {
+                    // Skip this pool if metadata fetch fails
+                }
+            }
+            
+            setSymbolTaken(false)
+        } catch (err) {
+            console.error("Error checking symbol:", err)
+            setSymbolTaken(false)
+        } finally {
+            setCheckingSymbol(false)
+        }
+    }, [connection])
+
+    // Debounced symbol check
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (symbol) {
+                checkSymbolExists(symbol)
+            }
+        }, 500)
+        return () => clearTimeout(timer)
+    }, [symbol, checkSymbolExists])
 
     // Removed handleImageChange as we now use direct URI input
 
@@ -107,6 +187,11 @@ export default function LaunchPage() {
 
         if (symbol.length > 10) {
             setError("Symbol must be 10 characters or less")
+            return
+        }
+
+        if (symbolTaken) {
+            setError("This symbol is already taken. Please choose a different one.")
             return
         }
 
@@ -339,15 +424,32 @@ export default function LaunchPage() {
                                 <label className="block text-sm font-medium text-[#E9E1D8] mb-2">
                                     Symbol (Ticker) *
                                 </label>
-                                <input
-                                    type="text"
-                                    value={symbol}
-                                    onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                                    placeholder="e.g., PHC"
-                                    maxLength={10}
-                                    className="w-full px-4 py-3 rounded-xl bg-[#0E1518] border border-[#2A3338] text-[#E9E1D8] placeholder-[#5F6A6E] focus:outline-none focus:border-[#8C3A32] transition-colors uppercase"
-                                />
-                                <p className="text-xs text-[#5F6A6E] mt-1">{symbol.length}/10 characters</p>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        value={symbol}
+                                        onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                                        placeholder="e.g., PHC"
+                                        maxLength={10}
+                                        className={`w-full px-4 py-3 rounded-xl bg-[#0E1518] border text-[#E9E1D8] placeholder-[#5F6A6E] focus:outline-none transition-colors uppercase ${
+                                            symbolTaken ? 'border-red-500' : 'border-[#2A3338] focus:border-[#8C3A32]'
+                                        }`}
+                                    />
+                                    {checkingSymbol && (
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                            <svg className="animate-spin h-4 w-4 text-[#5F6A6E]" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                            </svg>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex items-center justify-between mt-1">
+                                    <p className="text-xs text-[#5F6A6E]">{symbol.length}/10 characters · Duplicates not allowed</p>
+                                    {symbolTaken && (
+                                        <p className="text-xs text-red-500">⚠️ Symbol already taken</p>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Description */}
@@ -486,7 +588,7 @@ export default function LaunchPage() {
                             {/* Launch Button */}
                             <button
                                 onClick={handleLaunch}
-                                disabled={!connected || isLoading || !name || !symbol}
+                                disabled={!connected || isLoading || !name || !symbol || symbolTaken || checkingSymbol}
                                 className="w-full py-4 rounded-xl bg-[#8C3A32] text-[#E9E1D8] font-medium hover:bg-[#A04438] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             >
                                 {isLoading ? (

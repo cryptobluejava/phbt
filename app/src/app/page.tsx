@@ -67,6 +67,11 @@ export default function Home() {
           {/* Explore launched coins section */}
           <ExploreSection />
 
+          {/* Treasury Stats */}
+          <div className="mt-16">
+            <TreasuryCard />
+          </div>
+
           {/* How it works section */}
           <div className="mt-16 p-8 rounded-2xl bg-[#141D21] border border-[#2A3338]">
             <h2 className="text-xl font-medium text-[#E9E1D8] mb-6">How It Works</h2>

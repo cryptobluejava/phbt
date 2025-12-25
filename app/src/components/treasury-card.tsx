@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useConnection } from "@solana/wallet-adapter-react"
+import { PublicKey } from "@solana/web3.js"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Copy, Check, ExternalLink, Vault, Percent, Shield, RefreshCw } from "lucide-react"
 import { formatLamportsToSol, formatPercentage, shortenPubkey, getSolscanAccountUrl } from "@/lib/format"
 import { getCurveConfigPDA } from "@/lib/pdas"
 import { fetchCurveConfig, CurveConfiguration } from "@/lib/solana"
-import { PROGRAM_ID, DEFAULT_PAPERHAND_TAX_BPS, TREASURY_WALLET, REFRESH_INTERVALS } from "@/lib/constants"
+import { PROGRAM_ID, DEFAULT_PAPERHAND_TAX_BPS, TREASURY_WALLET, GLOBAL_SEED } from "@/lib/constants"
 
 interface TreasuryCardProps {
   className?: string
@@ -18,7 +19,7 @@ export function TreasuryCard({ className }: TreasuryCardProps) {
   const { connection } = useConnection()
 
   const [config, setConfig] = useState<CurveConfiguration | null>(null)
-  const [treasuryBalance, setTreasuryBalance] = useState(0)
+  const [taxesCollected, setTaxesCollected] = useState(0)
   const [treasuryVaultAddress, setTreasuryVaultAddress] = useState("")
   const [copied, setCopied] = useState<'treasury' | 'program' | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -31,13 +32,53 @@ export function TreasuryCard({ className }: TreasuryCardProps) {
 
       setTreasuryVaultAddress(treasuryWallet.toBase58())
 
-      const [configData, balance] = await Promise.all([
+      // Get global PDA (source of tax transfers)
+      const [globalPDA] = PublicKey.findProgramAddressSync(
+        [Buffer.from(GLOBAL_SEED)],
+        PROGRAM_ID
+      )
+
+      const [configData] = await Promise.all([
         fetchCurveConfig(connection, configPDA),
-        connection.getBalance(treasuryWallet).catch(() => 0)
       ])
 
       setConfig(configData)
-      setTreasuryBalance(balance)
+
+      // Fetch transactions to treasury to calculate taxes collected
+      // Tax transfers come FROM the global PDA TO the treasury
+      try {
+        const signatures = await connection.getSignaturesForAddress(treasuryWallet, { limit: 100 })
+        let totalTaxes = 0
+
+        // Process in batches to avoid rate limits
+        for (const sig of signatures.slice(0, 50)) {
+          try {
+            const tx = await connection.getParsedTransaction(sig.signature, { maxSupportedTransactionVersion: 0 })
+            if (!tx?.meta?.innerInstructions) continue
+
+            // Look for transfers from global PDA to treasury (these are tax payments)
+            for (const inner of tx.meta.innerInstructions) {
+              for (const ix of inner.instructions) {
+                if ('parsed' in ix && ix.parsed?.type === 'transfer') {
+                  const info = ix.parsed.info
+                  if (info.source === globalPDA.toBase58() && 
+                      info.destination === treasuryWallet.toBase58()) {
+                    totalTaxes += info.lamports
+                  }
+                }
+              }
+            }
+          } catch {
+            // Skip failed transaction fetches
+          }
+        }
+
+        setTaxesCollected(totalTaxes)
+      } catch {
+        // If transaction parsing fails, fall back to balance
+        const balance = await connection.getBalance(treasuryWallet).catch(() => 0)
+        setTaxesCollected(balance)
+      }
     } catch {
       // Silent fail
     } finally {
@@ -80,15 +121,16 @@ export function TreasuryCard({ className }: TreasuryCardProps) {
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="space-y-5">
-          {/* Treasury Balance - Featured */}
+          {/* Taxes Collected - Featured */}
           <div className="p-5 rounded-xl bg-[#0E1518] border border-[#2A3338]">
-            <span className="text-xs text-[#5F6A6E] uppercase tracking-wider block mb-2">Total Collected</span>
+            <span className="text-xs text-[#5F6A6E] uppercase tracking-wider block mb-2">Taxes Collected So Far</span>
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-medium text-[#E9E1D8] text-value">
-                {formatLamportsToSol(treasuryBalance)}
+                {formatLamportsToSol(taxesCollected)}
               </span>
               <span className="text-lg text-[#5F6A6E]">SOL</span>
             </div>
+            <span className="text-xs text-[#5F6A6E] mt-1 block">From paper hand sells</span>
           </div>
 
           {/* Tax Rate */}
