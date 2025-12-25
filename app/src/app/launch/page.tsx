@@ -9,7 +9,7 @@ import {
     ASSOCIATED_TOKEN_PROGRAM_ID,
     getAssociatedTokenAddressSync
 } from "@solana/spl-token"
-import { PROGRAM_ID, CURVE_CONFIG_SEED, POOL_SEED_PREFIX, GLOBAL_SEED, LAMPORTS_PER_SOL, TOKEN_METADATA_PROGRAM_ID } from "@/lib/constants"
+import { PROGRAM_ID, CURVE_CONFIG_SEED, POOL_SEED_PREFIX, GLOBAL_SEED, LAMPORTS_PER_SOL, TOKEN_METADATA_PROGRAM_ID, NETWORK, RPC_ENDPOINT } from "@/lib/constants"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -134,6 +134,10 @@ export default function LaunchPage() {
             const supplyLamports = BigInt(initialSupply) * BigInt(Math.pow(10, decimals))
             const solLamports = BigInt(Math.floor(parseFloat(initialSol) * LAMPORTS_PER_SOL))
 
+            console.log("=== LAUNCH DEBUG ===")
+            console.log("Network:", NETWORK)
+            console.log("Program ID:", PROGRAM_ID.toBase58())
+            console.log("RPC:", RPC_ENDPOINT)
             console.log("Launching token:", {
                 name,
                 symbol,
@@ -145,8 +149,17 @@ export default function LaunchPage() {
                     mint: pdas.mint.toBase58(),
                     pool: pdas.pool.toBase58(),
                     metadata: pdas.metadata.toBase58(),
+                    curveConfig: pdas.curveConfig.toBase58(),
+                    global: pdas.global.toBase58(),
                 }
             })
+            
+            // Verify config account exists
+            const configInfo = await connection.getAccountInfo(pdas.curveConfig)
+            if (!configInfo) {
+                throw new Error("CRITICAL: CurveConfiguration account does not exist at " + pdas.curveConfig.toBase58() + ". Program may not be initialized on this network.")
+            }
+            console.log("Config account verified:", configInfo.data.length, "bytes, owner:", configInfo.owner.toBase58())
 
             // All SOL goes to Platform LP
             const lpSolLamports = solLamports
