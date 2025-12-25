@@ -42,17 +42,26 @@ export const TOKEN_MINT = new PublicKey(
 // TOKEN VISIBILITY CONFIG
 // ============================================================================
 
-// Set to true to only show tokens with new metadata format OR in ALLOWED_TOKENS
-export const HIDE_OLD_TOKENS = true;
+// Set to false to show all tokens (except those in HIDDEN_TOKENS)
+export const HIDE_OLD_TOKENS = false;
 
 // Tokens to ALWAYS show (even if they don't have new metadata)
-export const ALLOWED_TOKENS: string[] = [
-    "FBCnkZ41gv1TLt7aCA7CUonBk3YNVJZsYvfQYNSJmDRz", // First official token
-];
+export const ALLOWED_TOKENS: string[] = [];
 
-// Tokens to ALWAYS hide (takes priority over ALLOWED_TOKENS)
+// Tokens to ALWAYS hide - test tokens
 export const HIDDEN_TOKENS: string[] = [
-    // Add test token addresses here to hide them
+    "3zgqFV8VtuepFEgUQ6wNhSakSQ6XB1WfpS6XT8zjeDkp",
+    "FRjiRVWLqLuxYTRRhSJ1HzQSrS513bssuoJomxdw5PoJ",
+    "FKgmk6m8NGvYadit2Dg8M7w8sg9XFKKHoHd1ADeEz3ty",
+    "EBHULh39GCWnFSxooRYP1QgagQW5myXCj83osLR7xkUZ",
+    "AozoMbDd32HqQ2VNhpXjdaQjq8YkCZ7tGmgpiEA5enjN",
+    "9VTTWo9thQYZbFVkudoSzoWPbXMFF72CAcGaMrKEJSRb",
+    "Estv2D8YaM7rfx3CfSBwxci18ean6M4D3WPgm3DqfDEE",
+    "EyPsGXg7xemEXqWApwvvUswESV5fm5SoD7TYjFtU3nYr",
+    "27kLi6kZW6ppbLRTc9mmmAJnYseWq8soViBdSyhHhhEH",
+    "53f86n8b6g73PQY3xZH7h2CVadq1KnY23Le1FH3WCmBe",
+    "7vqrevF393C2rm3fmqDewrf3TzMPYft1oeceLVPN1k4c",
+    "Gp8EJA3s2Q4rfiWYRbWHP62WSi22qRuwtuiqZaLABBEk",
 ];
 
 // ============================================================================

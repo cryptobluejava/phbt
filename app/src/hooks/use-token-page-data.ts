@@ -165,10 +165,11 @@ export function useTokenPageData(mint: PublicKey) {
                 console.error("Metadata fetch error:", e)
             }
 
-            // ============ STEP 2: Fetch Trades (DISABLED on auto-load to reduce RPC) ============
-            // Only fetch trades on manual refresh to drastically reduce RPC calls
+            // ============ STEP 2: Fetch Trades ============
+            // Fetch on first load OR manual refresh (not on auto-refresh to reduce RPC)
             const trades: Trade[] = []
-            if (isManualRefresh) {
+            const shouldFetchExpensiveData = isManualRefresh || !data.hasFetched
+            if (shouldFetchExpensiveData) {
                 try {
                     const [poolPDA] = getPoolPDA(mint)
                     // Reduced to 3 trades to minimize RPC
@@ -264,11 +265,12 @@ export function useTokenPageData(mint: PublicKey) {
                 } catch (e) {
                     console.error("Trades fetch error:", e)
                 }
-            } // End if(isManualRefresh) for trades
+            } // End trades fetch
 
-            // ============ STEP 3: Fetch Token Holdings (only on manual refresh) ============
+            // ============ STEP 3: Fetch Token Holdings ============
+            // Fetch on first load OR manual refresh
             const holdings: WalletHolding[] = []
-            if (isManualRefresh) {
+            if (shouldFetchExpensiveData) {
                 try {
                     if (metadata.totalSupply > 0) {
                         const [globalPDA] = getGlobalPDA()
@@ -305,7 +307,7 @@ export function useTokenPageData(mint: PublicKey) {
                 } catch (e) {
                     console.error("Holdings fetch error:", e)
                 }
-            } // End if(isManualRefresh) for holdings
+            } // End holdings fetch
 
             // Success! Empty arrays are valid - no need to retry
             setData({
@@ -347,10 +349,10 @@ export function useTokenPageData(mint: PublicKey) {
             })
         }
 
-        // Add 4s delay before initial fetch to avoid rate limits when page loads
+        // Small delay before initial fetch to let page render
         const initialDelay = setTimeout(() => {
             fetchAllData()
-        }, 4000)
+        }, 500)
         
         return () => clearTimeout(initialDelay)
 
