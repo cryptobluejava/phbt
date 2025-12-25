@@ -98,8 +98,8 @@ export function ExploreSection() {
             const poolsWithMints: Array<{
                 pubkey: PublicKey
                 tokenOne: PublicKey
-                reserveOne: BN
-                reserveTwo: BN
+                reserveOne: InstanceType<typeof BN>
+                reserveTwo: InstanceType<typeof BN>
             }> = []
 
             for (const { pubkey, account } of allAccounts) {
