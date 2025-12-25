@@ -39,15 +39,20 @@ export const TOKEN_MINT = new PublicKey(
 );
 
 // ============================================================================
-// HIDDEN TOKENS CONFIG
-// Set HIDE_OLD_TOKENS to true to hide all tokens without the new JSON metadata
-// This effectively shows only tokens created after the social links update
+// TOKEN VISIBILITY CONFIG
 // ============================================================================
-export const HIDE_OLD_TOKENS = true; // Set to false to show all tokens
 
-// Specific tokens to always hide (regardless of HIDE_OLD_TOKENS setting)
+// Set to true to only show tokens with new metadata format OR in ALLOWED_TOKENS
+export const HIDE_OLD_TOKENS = true;
+
+// Tokens to ALWAYS show (even if they don't have new metadata)
+export const ALLOWED_TOKENS: string[] = [
+    "FBCnkZ41gv1TLt7aCA7CUonBk3YNVJZsYvfQYNSJmDRz", // First official token
+];
+
+// Tokens to ALWAYS hide (takes priority over ALLOWED_TOKENS)
 export const HIDDEN_TOKENS: string[] = [
-    // Add specific token addresses here if needed
+    // Add test token addresses here to hide them
 ];
 
 // ============================================================================

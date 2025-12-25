@@ -5,7 +5,7 @@ import { useConnection } from "@solana/wallet-adapter-react"
 import { PublicKey } from "@solana/web3.js"
 import { Card, CardContent } from "@/components/ui/card"
 import { RefreshCw, Rocket, ExternalLink } from "lucide-react"
-import { PROGRAM_ID, POOL_SEED_PREFIX, TOKEN_METADATA_PROGRAM_ID, REFRESH_INTERVALS, HIDDEN_TOKENS, HIDE_OLD_TOKENS } from "@/lib/constants"
+import { PROGRAM_ID, POOL_SEED_PREFIX, TOKEN_METADATA_PROGRAM_ID, REFRESH_INTERVALS, HIDDEN_TOKENS, HIDE_OLD_TOKENS, ALLOWED_TOKENS } from "@/lib/constants"
 import { formatLamportsToSol } from "@/lib/format"
 import Link from "next/link"
 import { BN } from "bn.js"
@@ -183,7 +183,9 @@ export function ExploreSection() {
                 }
                 
                 // If HIDE_OLD_TOKENS is enabled, skip tokens without new metadata format
-                if (HIDE_OLD_TOKENS && !hasNewMetadataFormat) {
+                // UNLESS they're in the ALLOWED_TOKENS list
+                const isAllowed = ALLOWED_TOKENS.includes(mintAddress)
+                if (HIDE_OLD_TOKENS && !hasNewMetadataFormat && !isAllowed) {
                     continue
                 }
 
