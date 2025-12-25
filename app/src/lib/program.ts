@@ -1,5 +1,11 @@
 import { Connection, PublicKey, Transaction, TransactionInstruction, SystemProgram, SYSVAR_RENT_PUBKEY } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
+import { 
+    TOKEN_PROGRAM_ID, 
+    ASSOCIATED_TOKEN_PROGRAM_ID, 
+    getAssociatedTokenAddressSync,
+    createSetAuthorityInstruction,
+    AuthorityType
+} from "@solana/spl-token";
 import { BN } from "bn.js";
 import { PROGRAM_ID, CURVE_CONFIG_SEED, POOL_SEED_PREFIX, GLOBAL_SEED, TREASURY_WALLET, TOKEN_METADATA_PROGRAM_ID } from "./constants";
 import { getCurveConfigPDA } from "./pdas";
@@ -176,7 +182,8 @@ export function getSwapPDAs(mint: PublicKey, user: PublicKey) {
         PROGRAM_ID
     );
 
-    // Treasury Wallet (from centralized constants - same address used by program config)
+    // Treasury Vault - this is the wallet address stored in global config
+    // It's set during program initialization and must match exactly
     const treasuryVault = TREASURY_WALLET;
 
     // User Position PDA
@@ -301,12 +308,10 @@ export async function createSwapTransaction(
     console.log("  - userTokenAccount:", pdas.userTokenAccount.toBase58());
     console.log("  - poolTokenAccount:", pdas.poolTokenAccount.toBase58());
 
-    // Check if critical accounts exist
-    const [configInfo, poolInfo, globalInfo] = await Promise.all([
-        connection.getAccountInfo(pdas.curveConfig),
-        connection.getAccountInfo(pdas.pool),
-        connection.getAccountInfo(pdas.global),
-    ]);
+    // Check if critical accounts exist - use batched call to reduce RPC requests
+    const accountsToCheck = [pdas.curveConfig, pdas.pool, pdas.global];
+    const accountInfos = await connection.getMultipleAccountsInfo(accountsToCheck);
+    const [configInfo, poolInfo, globalInfo] = accountInfos;
 
     console.log("Account status:");
     console.log("  - curveConfig exists:", !!configInfo, configInfo ? `(${configInfo.data.length} bytes)` : "");
@@ -322,6 +327,9 @@ export async function createSwapTransaction(
     if (!globalInfo) {
         throw new Error("Global account not found! Program may not be initialized.");
     }
+    
+    // Small delay to avoid rate limits
+    await new Promise(r => setTimeout(r, 300));
 
     // Add compute budget for complex swap instruction
     transaction.add(
@@ -331,6 +339,7 @@ export async function createSwapTransaction(
 
     // Check if user token account exists, create if not (for buys)
     if (params.style === 2) { // BUY
+        await new Promise(r => setTimeout(r, 200)); // Small delay to avoid rate limits
         const userTokenAccountInfo = await connection.getAccountInfo(pdas.userTokenAccount);
         console.log("  - userTokenAccount exists:", !!userTokenAccountInfo);
         if (!userTokenAccountInfo) {
@@ -423,4 +432,181 @@ export async function createUpdateConfigTransaction(
     transaction.feePayer = admin;
 
     return transaction;
+}
+
+// ============================================================================
+// REVOKE AUTHORITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Create a transaction to revoke mint authority (makes token supply fixed)
+ * This ensures no more tokens can ever be minted
+ */
+export async function createRevokeMintAuthorityTransaction(
+    connection: Connection,
+    mint: PublicKey,
+    currentAuthority: PublicKey
+): Promise<Transaction> {
+    const transaction = new Transaction();
+
+    // Get the global PDA which is the mint authority
+    const [global] = PublicKey.findProgramAddressSync(
+        [Buffer.from(GLOBAL_SEED)],
+        PROGRAM_ID
+    );
+
+    // Note: The mint authority is set to the global PDA during launch.
+    // To revoke it, we need the global account to sign via CPI from the program.
+    // Since we can't do that client-side, we'll create an instruction that
+    // sets the authority to null (revokes it)
+    
+    // For tokens where the creator is the authority, use this:
+    const revokeInstruction = createSetAuthorityInstruction(
+        mint,                           // mint account
+        currentAuthority,               // current authority (creator for new flow)
+        AuthorityType.MintTokens,       // authority type
+        null,                           // new authority (null = revoke)
+        [],                             // multi-signers (empty)
+        TOKEN_PROGRAM_ID                // token program
+    );
+
+    transaction.add(revokeInstruction);
+
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+    transaction.recentBlockhash = blockhash;
+    transaction.lastValidBlockHeight = lastValidBlockHeight;
+    transaction.feePayer = currentAuthority;
+
+    return transaction;
+}
+
+/**
+ * Create a transaction to revoke freeze authority
+ * This ensures no accounts can ever be frozen
+ */
+export async function createRevokeFreezeAuthorityTransaction(
+    connection: Connection,
+    mint: PublicKey,
+    currentAuthority: PublicKey
+): Promise<Transaction> {
+    const transaction = new Transaction();
+
+    const revokeInstruction = createSetAuthorityInstruction(
+        mint,                           // mint account
+        currentAuthority,               // current authority
+        AuthorityType.FreezeAccount,    // authority type
+        null,                           // new authority (null = revoke)
+        [],                             // multi-signers (empty)
+        TOKEN_PROGRAM_ID                // token program
+    );
+
+    transaction.add(revokeInstruction);
+
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+    transaction.recentBlockhash = blockhash;
+    transaction.lastValidBlockHeight = lastValidBlockHeight;
+    transaction.feePayer = currentAuthority;
+
+    return transaction;
+}
+
+/**
+ * Create a combined transaction to revoke both mint and freeze authorities
+ */
+export async function createRevokeAllAuthoritiesTransaction(
+    connection: Connection,
+    mint: PublicKey,
+    currentAuthority: PublicKey
+): Promise<Transaction> {
+    const transaction = new Transaction();
+
+    // Revoke mint authority
+    transaction.add(
+        createSetAuthorityInstruction(
+            mint,
+            currentAuthority,
+            AuthorityType.MintTokens,
+            null,
+            [],
+            TOKEN_PROGRAM_ID
+        )
+    );
+
+    // Revoke freeze authority
+    transaction.add(
+        createSetAuthorityInstruction(
+            mint,
+            currentAuthority,
+            AuthorityType.FreezeAccount,
+            null,
+            [],
+            TOKEN_PROGRAM_ID
+        )
+    );
+
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+    transaction.recentBlockhash = blockhash;
+    transaction.lastValidBlockHeight = lastValidBlockHeight;
+    transaction.feePayer = currentAuthority;
+
+    return transaction;
+}
+
+// ============================================================================
+// METEORA POOL CREATION (Placeholder - SDK integration needed)
+// ============================================================================
+
+/**
+ * Meteora Dynamic AMM pool creation parameters
+ */
+export interface MeteoraPoolParams {
+    tokenMint: PublicKey;
+    solAmount: bigint;       // SOL to add to pool
+    tokenAmount: bigint;     // Tokens to add to pool
+    creator: PublicKey;
+}
+
+/**
+ * Check if a Meteora pool exists for a token
+ */
+export async function checkMeteoraPoolExists(
+    connection: Connection,
+    tokenMint: PublicKey
+): Promise<{ exists: boolean; poolAddress?: string }> {
+    // Meteora Dynamic AMM Program ID
+    const METEORA_DYNAMIC_AMM_PROGRAM = new PublicKey("Eo7WjKq67rjJQSZxS6z3YkapzY3eMj6Xy8X5EQVn5UaB");
+    
+    // Derive pool address (simplified - actual derivation may differ)
+    // This is a placeholder - real implementation needs Meteora SDK
+    const WSOL_MINT = new PublicKey("So11111111111111111111111111111111111111112");
+    
+    try {
+        // Try to find pool by searching program accounts
+        // This is a simplified check - real implementation would use Meteora SDK
+        const pools = await connection.getProgramAccounts(METEORA_DYNAMIC_AMM_PROGRAM, {
+            filters: [
+                { dataSize: 300 }, // Approximate pool account size
+            ],
+        });
+        
+        // For now, return false - real implementation would check pool data
+        return { exists: false };
+    } catch (error) {
+        console.error("Error checking Meteora pool:", error);
+        return { exists: false };
+    }
+}
+
+/**
+ * Get Meteora pool URL for external viewing
+ */
+export function getMeteoraPoolUrl(poolAddress: string): string {
+    return `https://app.meteora.ag/pools/${poolAddress}`;
+}
+
+/**
+ * Get Meteora fee claim URL
+ */
+export function getMeteoraFeeClaimUrl(wallet: string): string {
+    return `https://app.meteora.ag/portfolio?wallet=${wallet}`;
 }

@@ -8,6 +8,7 @@ import { TokenCard } from "@/components/token-card"
 import { TradesTable } from "@/components/trades-table"
 import { TokenChart } from "@/components/token-chart"
 import { WalletDistribution } from "@/components/wallet-distribution"
+import { CreatorFeesCard } from "@/components/creator-fees-card"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { PublicKey } from "@solana/web3.js"
 import Link from "next/link"
@@ -71,6 +72,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                         <div className="flex flex-col gap-6 h-full">
                             <PositionCard key={`position-${refreshKey}`} mint={mint} tokenSymbol={metadata?.symbol} className="flex-1" />
                             <TreasuryCard />
+                            <CreatorFeesCard mint={mint} tokenCreator={metadata?.creator} />
                         </div>
                     </div>
 

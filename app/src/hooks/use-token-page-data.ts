@@ -24,6 +24,10 @@ export interface TokenMetadata {
     image: string | null
     totalSupply: number
     decimals: number
+    creator: string | null  // Token creator wallet address
+    website: string | null
+    twitter: string | null
+    telegram: string | null
 }
 
 export interface WalletHolding {
@@ -84,6 +88,10 @@ export function useTokenPageData(mint: PublicKey) {
                 image: null,
                 totalSupply: 0,
                 decimals: 6,
+                creator: null,
+                website: null,
+                twitter: null,
+                telegram: null,
             }
 
             try {
@@ -100,6 +108,11 @@ export function useTokenPageData(mint: PublicKey) {
                 const metadataAccount = await connection.getAccountInfo(metadataPDA)
                 if (metadataAccount) {
                     const data = metadataAccount.data
+                    // Extract update authority (usually the creator for our tokens)
+                    // Metadata layout: key (1) + update_authority (32) + mint (32) + name...
+                    const updateAuthority = new PublicKey(data.slice(1, 33))
+                    metadata.creator = updateAuthority.toBase58()
+                    
                     let offset = 1 + 32 + 32
                     metadata.name = data.slice(offset + 4, offset + 4 + 32).toString('utf8').replace(/\0/g, '').trim()
                     offset += 36
@@ -107,26 +120,56 @@ export function useTokenPageData(mint: PublicKey) {
                     offset += 14
                     const uriLen = data.readUInt32LE(offset)
                     const uri = data.slice(offset + 4, offset + 4 + uriLen).toString('utf8').replace(/\0/g, '').trim()
-                    if (uri && uri.startsWith("http") && !uri.includes("placeholder-")) {
-                        metadata.image = uri
+                    
+                    // Parse URI - could be data URI (base64 JSON) or http URL
+                    if (uri) {
+                        if (uri.startsWith("data:application/json;base64,")) {
+                            // Decode base64 JSON metadata
+                            try {
+                                const base64Data = uri.replace("data:application/json;base64,", "")
+                                const jsonStr = Buffer.from(base64Data, 'base64').toString('utf8')
+                                const jsonMeta = JSON.parse(jsonStr)
+                                
+                                if (jsonMeta.image) metadata.image = jsonMeta.image
+                                if (jsonMeta.external_url) metadata.website = jsonMeta.external_url
+                                
+                                // Extract social links from attributes
+                                if (jsonMeta.attributes && Array.isArray(jsonMeta.attributes)) {
+                                    for (const attr of jsonMeta.attributes) {
+                                        if (attr.trait_type === "twitter") metadata.twitter = attr.value
+                                        if (attr.trait_type === "telegram") metadata.telegram = attr.value
+                                    }
+                                }
+                            } catch (e) {
+                                console.error("Failed to parse metadata JSON:", e)
+                            }
+                        } else if (uri.startsWith("http") && !uri.includes("placeholder-")) {
+                            // Legacy: direct image URL
+                            metadata.image = uri
+                        }
                     }
                 }
             } catch (e) {
                 console.error("Metadata fetch error:", e)
             }
 
-            // ============ STEP 2: Fetch Trades ============
+            // ============ STEP 2: Fetch Trades (DISABLED on auto-load to reduce RPC) ============
+            // Only fetch trades on manual refresh to drastically reduce RPC calls
             const trades: Trade[] = []
-            try {
-                const [poolPDA] = getPoolPDA(mint)
-                const signatures = await connection.getSignaturesForAddress(poolPDA, { limit: 20 })
+            if (isManualRefresh) {
+                try {
+                    const [poolPDA] = getPoolPDA(mint)
+                    // Reduced to 3 trades to minimize RPC
+                    const signatures = await connection.getSignaturesForAddress(poolPDA, { limit: 3 })
 
-                // Process transactions - empty signatures is valid (no trades yet)
-                for (const sig of signatures) {
-                    try {
-                        const tx = await connection.getParsedTransaction(sig.signature, {
-                            maxSupportedTransactionVersion: 0
-                        })
+                    // Process transactions with larger delays
+                    for (const sig of signatures) {
+                        try {
+                            // Add 500ms delay between transaction fetches
+                            await new Promise(r => setTimeout(r, 500))
+                            const tx = await connection.getParsedTransaction(sig.signature, {
+                                maxSupportedTransactionVersion: 0
+                            })
 
                         if (!tx || !tx.meta) continue
 
@@ -201,53 +244,56 @@ export function useTokenPageData(mint: PublicKey) {
                             timestamp: sig.blockTime || 0,
                             price,
                         })
-                    } catch (e) {
-                        continue
-                    }
-                }
-                trades.sort((a, b) => b.timestamp - a.timestamp)
-            } catch (e) {
-                console.error("Trades fetch error:", e)
-            }
-
-            // ============ STEP 3: Fetch Token Holdings ============
-            const holdings: WalletHolding[] = []
-            try {
-                if (metadata.totalSupply > 0) {
-                    const [globalPDA] = getGlobalPDA()
-                    const poolTokenAccount = getAssociatedTokenAddressSync(mint, globalPDA, true)
-
-                    const accounts = await connection.getParsedProgramAccounts(TOKEN_PROGRAM_ID, {
-                        filters: [
-                            { dataSize: 165 },
-                            { memcmp: { offset: 0, bytes: mint.toBase58() } }
-                        ]
-                    })
-
-                    for (const account of accounts) {
-                        const data = account.account.data
-                        if ("parsed" in data) {
-                            const info = data.parsed.info
-                            const balance = Number(info.tokenAmount.uiAmount) || 0
-                            if (balance === 0) continue
-
-                            const isLP = account.pubkey.equals(poolTokenAccount)
-                            const percentage = (balance / metadata.totalSupply) * 100
-
-                            holdings.push({
-                                address: isLP ? "Liquidity Pool" : account.pubkey.toBase58(),
-                                balance,
-                                percentage,
-                                isLiquidityPool: isLP,
-                            })
+                        } catch (e) {
+                            continue
                         }
                     }
-                    holdings.sort((a, b) => b.balance - a.balance)
-                    holdings.splice(10)
+                    trades.sort((a, b) => b.timestamp - a.timestamp)
+                } catch (e) {
+                    console.error("Trades fetch error:", e)
                 }
-            } catch (e) {
-                console.error("Holdings fetch error:", e)
-            }
+            } // End if(isManualRefresh) for trades
+
+            // ============ STEP 3: Fetch Token Holdings (only on manual refresh) ============
+            const holdings: WalletHolding[] = []
+            if (isManualRefresh) {
+                try {
+                    if (metadata.totalSupply > 0) {
+                        const [globalPDA] = getGlobalPDA()
+                        const poolTokenAccount = getAssociatedTokenAddressSync(mint, globalPDA, true)
+
+                        const accounts = await connection.getParsedProgramAccounts(TOKEN_PROGRAM_ID, {
+                            filters: [
+                                { dataSize: 165 },
+                                { memcmp: { offset: 0, bytes: mint.toBase58() } }
+                            ]
+                        })
+
+                        for (const account of accounts) {
+                            const data = account.account.data
+                            if ("parsed" in data) {
+                                const info = data.parsed.info
+                                const balance = Number(info.tokenAmount.uiAmount) || 0
+                                if (balance === 0) continue
+
+                                const isLP = account.pubkey.equals(poolTokenAccount)
+                                const percentage = (balance / metadata.totalSupply) * 100
+
+                                holdings.push({
+                                    address: isLP ? "Liquidity Pool" : account.pubkey.toBase58(),
+                                    balance,
+                                    percentage,
+                                    isLiquidityPool: isLP,
+                                })
+                            }
+                        }
+                        holdings.sort((a, b) => b.balance - a.balance)
+                        holdings.splice(10)
+                    }
+                } catch (e) {
+                    console.error("Holdings fetch error:", e)
+                }
+            } // End if(isManualRefresh) for holdings
 
             // Success! Empty arrays are valid - no need to retry
             setData({
@@ -289,11 +335,15 @@ export function useTokenPageData(mint: PublicKey) {
             })
         }
 
-        fetchAllData()
+        // Add 4s delay before initial fetch to avoid rate limits when page loads
+        const initialDelay = setTimeout(() => {
+            fetchAllData()
+        }, 4000)
+        
+        return () => clearTimeout(initialDelay)
 
-        // Auto-refresh every 30 seconds
-        const interval = setInterval(fetchAllData, REFRESH_INTERVALS.TOKEN_PAGE)
-        return () => clearInterval(interval)
+        // Disabled auto-refresh to reduce RPC calls
+        // Manual refresh via refetch() when needed
     }, [fetchAllData, mint])
 
     return { ...data, refetch: fetchAllData }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { useWallet, useConnection } from "@solana/wallet-adapter-react"
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
 import { PublicKey, Transaction, SystemProgram, SYSVAR_RENT_PUBKEY } from "@solana/web3.js"
@@ -12,24 +12,38 @@ import {
 import { PROGRAM_ID, CURVE_CONFIG_SEED, POOL_SEED_PREFIX, GLOBAL_SEED, LAMPORTS_PER_SOL, TOKEN_METADATA_PROGRAM_ID } from "@/lib/constants"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 
 
 export default function LaunchPage() {
+    const router = useRouter()
     const { connection } = useConnection()
     const { publicKey, sendTransaction, connected } = useWallet()
+    const [mounted, setMounted] = useState(false)
 
     const [name, setName] = useState("")
     const [symbol, setSymbol] = useState("")
     const [description, setDescription] = useState("")
     const [imageUri, setImageUri] = useState("")
-    const [decimals, setDecimals] = useState(6)
-    const [initialSupply, setInitialSupply] = useState("1000000000")
+    const [website, setWebsite] = useState("")
+    const [twitter, setTwitter] = useState("")
+    const [telegram, setTelegram] = useState("")
+    // Fixed defaults - not editable by users
+    const decimals = 6
+    const initialSupply = "1000000000"
     const [initialSol, setInitialSol] = useState("0.1")
+    // All SOL goes to Platform LP
+    // User can buy tokens on the token page after launch
 
     const [isLoading, setIsLoading] = useState(false)
+    const [launchStep, setLaunchStep] = useState<string>("")
+
+    // Fix hydration mismatch
+    useEffect(() => {
+        setMounted(true)
+    }, [])
     const [error, setError] = useState<string | null>(null)
-    const [success, setSuccess] = useState<{ mint: string; pool: string } | null>(null)
 
     // Removed handleImageChange as we now use direct URI input
 
@@ -98,11 +112,23 @@ export default function LaunchPage() {
 
         setIsLoading(true)
         setError(null)
-        setSuccess(null)
 
         try {
-            // Use provided image URI or leave empty (fallback will show initials)
-            let uri = imageUri || ""
+            // Create JSON metadata with social links
+            const metadata = {
+                name,
+                symbol,
+                image: imageUri || "",
+                external_url: website || undefined,
+                attributes: [
+                    ...(twitter ? [{ trait_type: "twitter", value: twitter }] : []),
+                    ...(telegram ? [{ trait_type: "telegram", value: telegram }] : []),
+                ].filter(Boolean),
+            }
+            
+            // Encode metadata as data URI (base64 JSON)
+            const metadataJson = JSON.stringify(metadata)
+            const uri = `data:application/json;base64,${Buffer.from(metadataJson).toString('base64')}`
 
             const pdas = derivePDAs(symbol)
             const supplyLamports = BigInt(initialSupply) * BigInt(Math.pow(10, decimals))
@@ -122,6 +148,11 @@ export default function LaunchPage() {
                 }
             })
 
+            // All SOL goes to Platform LP
+            const lpSolLamports = solLamports
+
+            console.log(`Platform LP: ${Number(lpSolLamports) / LAMPORTS_PER_SOL} SOL`)
+
             // Import and use the program client
             const { createLaunchTransaction } = await import("@/lib/program")
             const { ComputeBudgetProgram } = await import("@solana/web3.js")
@@ -134,7 +165,7 @@ export default function LaunchPage() {
                     uri,
                     decimals,
                     initialSupply: supplyLamports,
-                    initialSolReserve: solLamports,
+                    initialSolReserve: lpSolLamports,
                 },
                 publicKey
             )
@@ -146,44 +177,76 @@ export default function LaunchPage() {
                 })
             )
 
-            // Simulate transaction first
-            console.log("Simulating transaction...")
+            console.log("Transaction built with", transaction.instructions.length, "instructions")
+            console.log("Fee payer:", transaction.feePayer?.toBase58())
+            console.log("Recent blockhash:", transaction.recentBlockhash)
+
+            // Delay to avoid rate limits from header balance check
+            setLaunchStep("Preparing transaction...")
+            await new Promise(r => setTimeout(r, 2000))
+
+            // Send transaction - let wallet handle simulation
+            let signature: string
             try {
-                const simulation = await connection.simulateTransaction(transaction)
-                if (simulation.value.err) {
-                    console.error("Simulation failed:", simulation.value.logs)
-                    throw new Error(`Simulation failed: ${JSON.stringify(simulation.value.err)}. Check console for logs.`)
+                signature = await sendTransaction(transaction, connection, {
+                    skipPreflight: false, // Let wallet simulate for better UX
+                    maxRetries: 5,
+                })
+                console.log("Launch transaction sent:", signature)
+            } catch (sendErr: any) {
+                // Check if user rejected
+                if (sendErr.message?.includes('User rejected') || sendErr.name === 'WalletSignTransactionError') {
+                    throw new Error("Transaction cancelled by user")
                 }
-                console.log("Simulation success!", simulation.value.logs)
-            } catch (simErr: any) {
-                console.error("Simulation error details:", simErr)
-                throw simErr
+                // Check for simulation errors
+                if (sendErr.logs) {
+                    console.error("Transaction logs:", sendErr.logs)
+                }
+                console.error("Send transaction error:", sendErr)
+                throw new Error(`Failed to send transaction: ${sendErr.message || 'Unknown error'}`)
             }
 
-            // Send transaction
-            const signature = await sendTransaction(transaction, connection)
+            // Wait for confirmation with simple polling to avoid rate limits
+            setLaunchStep("Confirming token creation (may take up to 60s)...")
+            let launchConfirmed = false
+            for (let i = 0; i < 15; i++) { // 15 attempts, 4 seconds each = 60 seconds max
+                await new Promise(r => setTimeout(r, 4000))
+                try {
+                    const status = await connection.getSignatureStatus(signature)
+                    if (status.value?.confirmationStatus === 'confirmed' || status.value?.confirmationStatus === 'finalized') {
+                        if (status.value.err) {
+                            throw new Error(`Transaction failed: ${JSON.stringify(status.value.err)}`)
+                        }
+                        launchConfirmed = true
+                        break
+                    }
+                } catch (e: any) {
+                    if (e.message?.includes('Transaction failed')) throw e
+                    // Ignore polling errors, keep trying
+                }
+            }
 
-            // Wait for confirmation
-            const confirmation = await connection.confirmTransaction(signature, "confirmed")
-
-            if (confirmation.value.err) {
-                throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`)
+            if (!launchConfirmed) {
+                throw new Error("Transaction sent but confirmation timed out. Check Solana Explorer for status: " + signature)
             }
 
             console.log("Token launched successfully! Signature:", signature)
 
-            setSuccess({
-                mint: pdas.mint.toBase58(),
-                pool: pdas.pool.toBase58(),
-            })
+            const mintAddress = pdas.mint.toBase58()
+            
+            // Success! Redirect to token page
+            setLaunchStep("Success! Redirecting to token page...")
+            await new Promise(r => setTimeout(r, 1500))
+            router.push(`/token/${mintAddress}`)
 
         } catch (err: any) {
             console.error("Launch error:", err)
             setError(err.message || "Failed to launch token")
+            setLaunchStep("")
         } finally {
             setIsLoading(false)
         }
-    }, [publicKey, connected, name, symbol, imageUri, decimals, initialSupply, initialSol, derivePDAs, connection, sendTransaction])
+    }, [publicKey, connected, name, symbol, imageUri, website, twitter, telegram, initialSol, derivePDAs, connection, sendTransaction, router])
 
     return (
         <TooltipProvider>
@@ -199,10 +262,10 @@ export default function LaunchPage() {
                             <div className="w-1 h-12 bg-[#8C3A32]" />
                             <div>
                                 <h1 className="text-3xl font-medium text-[#E9E1D8] tracking-tight">
-                                    Launch Your Token
+                                    Create Your Coin
                                 </h1>
                                 <p className="text-[#9FA6A3] mt-1">
-                                    Create a token with Paper Hand Tax built-in
+                                    Launch a token with Paper Hand Tax built-in
                                 </p>
                             </div>
                         </div>
@@ -212,7 +275,7 @@ export default function LaunchPage() {
                     <div className="p-8 rounded-2xl bg-[#141D21] border border-[#2A3338]">
 
                         {/* Wallet Connection */}
-                        {!connected && (
+                        {mounted && !connected && (
                             <div className="mb-6 p-4 rounded-xl bg-[#0E1518] border border-[#2A3338] text-center">
                                 <p className="text-sm text-[#9FA6A3] mb-4">Connect your wallet to launch a token</p>
                                 <WalletMultiButton className="!bg-[#8C3A32] !rounded-lg" />
@@ -285,40 +348,61 @@ export default function LaunchPage() {
                                 </p>
                             </div>
 
-                            {/* Advanced Options */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-[#E9E1D8] mb-2">
-                                        Decimals
-                                    </label>
-                                    <select
-                                        value={decimals}
-                                        onChange={(e) => setDecimals(Number(e.target.value))}
-                                        className="w-full px-4 py-3 rounded-xl bg-[#0E1518] border border-[#2A3338] text-[#E9E1D8] focus:outline-none focus:border-[#8C3A32] transition-colors"
-                                    >
-                                        <option value={6}>6 (Standard)</option>
-                                        <option value={9}>9 (Like SOL)</option>
-                                        <option value={0}>0 (NFT-like)</option>
-                                    </select>
+                            {/* Social Links */}
+                            <div className="space-y-4">
+                                <label className="block text-sm font-medium text-[#E9E1D8]">
+                                    Social Links (Optional)
+                                </label>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    <div>
+                                        <label className="block text-xs text-[#5F6A6E] mb-1">Website</label>
+                                        <input
+                                            type="text"
+                                            value={website}
+                                            onChange={(e) => setWebsite(e.target.value)}
+                                            placeholder="https://mytoken.com"
+                                            className="w-full px-3 py-2 rounded-lg bg-[#0E1518] border border-[#2A3338] text-[#E9E1D8] placeholder-[#5F6A6E] focus:outline-none focus:border-[#8C3A32] transition-colors text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-[#5F6A6E] mb-1">X (Twitter)</label>
+                                        <input
+                                            type="text"
+                                            value={twitter}
+                                            onChange={(e) => setTwitter(e.target.value)}
+                                            placeholder="https://x.com/mytoken"
+                                            className="w-full px-3 py-2 rounded-lg bg-[#0E1518] border border-[#2A3338] text-[#E9E1D8] placeholder-[#5F6A6E] focus:outline-none focus:border-[#8C3A32] transition-colors text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-[#5F6A6E] mb-1">Telegram</label>
+                                        <input
+                                            type="text"
+                                            value={telegram}
+                                            onChange={(e) => setTelegram(e.target.value)}
+                                            placeholder="https://t.me/mytoken"
+                                            className="w-full px-3 py-2 rounded-lg bg-[#0E1518] border border-[#2A3338] text-[#E9E1D8] placeholder-[#5F6A6E] focus:outline-none focus:border-[#8C3A32] transition-colors text-sm"
+                                        />
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-[#E9E1D8] mb-2">
-                                        Initial Supply
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={initialSupply}
-                                        onChange={(e) => setInitialSupply(e.target.value.replace(/[^0-9]/g, ""))}
-                                        placeholder="1000000000"
-                                        className="w-full px-4 py-3 rounded-xl bg-[#0E1518] border border-[#2A3338] text-[#E9E1D8] placeholder-[#5F6A6E] focus:outline-none focus:border-[#8C3A32] transition-colors"
-                                    />
+                            </div>
+
+                            {/* Token Specs (Info only, not editable) */}
+                            <div className="p-3 rounded-xl bg-[#0E1518] border border-[#2A3338]">
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-[#5F6A6E]">Token Supply</span>
+                                    <span className="text-[#E9E1D8]">1,000,000,000 (1B)</span>
+                                </div>
+                                <div className="flex items-center justify-between text-sm mt-2">
+                                    <span className="text-[#5F6A6E]">Decimals</span>
+                                    <span className="text-[#E9E1D8]">6 (Standard)</span>
                                 </div>
                             </div>
 
                             {/* Initial SOL */}
                             <div>
                                 <label className="block text-sm font-medium text-[#E9E1D8] mb-2">
-                                    Initial SOL Liquidity
+                                    Initial Liquidity (SOL)
                                 </label>
                                 <div className="relative">
                                     <input
@@ -330,9 +414,7 @@ export default function LaunchPage() {
                                     />
                                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[#9FA6A3]">SOL</span>
                                 </div>
-                                <p className="text-xs text-[#5F6A6E] mt-1">
-                                    This SOL seeds the bonding curve. You can start with as little as 0.01 SOL.
-                                </p>
+                                
                             </div>
 
                             {/* Paper Hand Tax Notice */}
@@ -355,16 +437,16 @@ export default function LaunchPage() {
                                 </div>
                             )}
 
-                            {/* Success Message */}
-                            {success && (
-                                <div className="p-4 rounded-xl bg-green-900/20 border border-green-500/30">
-                                    <p className="text-sm text-green-400 font-medium mb-2">🎉 Token Launched Successfully!</p>
-                                    <p className="text-xs text-[#9FA6A3]">
-                                        Mint: <code className="text-green-400">{success.mint}</code>
-                                    </p>
-                                    <p className="text-xs text-[#9FA6A3] mt-1">
-                                        Pool: <code className="text-green-400">{success.pool}</code>
-                                    </p>
+                            {/* Launch Progress */}
+                            {launchStep && (
+                                <div className="p-4 rounded-xl bg-blue-900/20 border border-blue-500/30">
+                                    <div className="flex items-center gap-3">
+                                        <svg className="animate-spin h-5 w-5 text-blue-400" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                        </svg>
+                                        <p className="text-sm text-blue-400">{launchStep}</p>
+                                    </div>
                                 </div>
                             )}
 
@@ -383,7 +465,7 @@ export default function LaunchPage() {
                                         Launching...
                                     </span>
                                 ) : (
-                                    "🚀 Launch Token"
+                                    "Create PHBT Coin"
                                 )}
                             </button>
                         </div>
@@ -391,29 +473,29 @@ export default function LaunchPage() {
 
                     {/* Info Section */}
                     <div className="mt-8 p-6 rounded-2xl bg-[#141D21] border border-[#2A3338]">
-                        <h2 className="text-lg font-medium text-[#E9E1D8] mb-4">What Happens When You Launch?</h2>
+                        <h2 className="text-lg font-medium text-[#E9E1D8] mb-4">How It Works</h2>
                         <ul className="space-y-3 text-sm text-[#9FA6A3]">
                             <li className="flex items-start gap-2">
-                                <span className="text-[#8C3A32]">1.</span>
-                                A new SPL token is created with your name and symbol
+                                <span className="text-[#8C3A32] font-bold">1.</span>
+                                <span><strong className="text-[#E9E1D8]">Token Created:</strong> 1B tokens minted to platform pool</span>
                             </li>
                             <li className="flex items-start gap-2">
-                                <span className="text-[#8C3A32]">2.</span>
-                                <span>The entire supply is minted to the bonding curve pool</span>
+                                <span className="text-[#8C3A32] font-bold">2.</span>
+                                <span><strong className="text-[#E9E1D8]">Platform LP (80%):</strong> Creates trading pool on our platform</span>
                             </li>
                             <li className="flex items-start gap-2">
-                                <span className="text-[#8C3A32]">3.</span>
-                                <span>Your initial SOL seeds the liquidity</span>
-                            </li>
-                            <li className="flex items-start gap-2">
-                                <span className="text-[#8C3A32]">4.</span>
-                                <span>Anyone can immediately start trading</span>
-                            </li>
-                            <li className="flex items-start gap-2">
-                                <span className="text-[#8C3A32]">5.</span>
-                                <span>Paper Hand Tax (50%) applies to all loss-based sells</span>
+                                <span className="text-[#8C3A32] font-bold">3.</span>
+                                <span><strong className="text-[#E9E1D8]">Paper Hand Tax:</strong> 50% tax on selling at a loss enforced on all trades</span>
                             </li>
                         </ul>
+                        
+                        <div className="mt-4 p-3 rounded-lg bg-[#8C3A32]/20 border border-[#8C3A32]/30">
+                            <p className="text-xs font-medium text-[#E9E1D8] mb-1">💎 Diamond Hand Protection</p>
+                            <p className="text-xs text-[#9FA6A3]">
+                                All trading happens on our platform with the Paper Hand Tax enforced.
+                                Diamond hands who hold or sell at profit pay no tax!
+                            </p>
+                        </div>
                     </div>
 
                 </div>

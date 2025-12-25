@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useConnection, useWallet } from "@solana/wallet-adapter-react"
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -9,8 +9,7 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/comp
 import { formatLamportsToSol, formatTokenAmount } from "@/lib/format"
 import { getPoolPDA, getUserPositionPDA } from "@/lib/pdas"
 import { fetchPool, fetchUserPosition, LiquidityPool, UserPosition, calculateSellOutput } from "@/lib/solana"
-import { REFRESH_INTERVALS } from "@/lib/constants"
-import { TrendingDown, TrendingUp, Wallet, Info, AlertTriangle, RefreshCw } from "lucide-react"
+import { TrendingDown, TrendingUp, Wallet, AlertTriangle, RefreshCw } from "lucide-react"
 
 interface PositionCardProps {
   mint: PublicKey | null
@@ -26,6 +25,7 @@ export function PositionCard({ mint, tokenSymbol = "TOKEN", className }: Positio
   const [pool, setPool] = useState<LiquidityPool | null>(null)
   const [totalSupply, setTotalSupply] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
+  const hasFetchedRef = useRef(false)
 
   const fetchData = useCallback(async () => {
     if (!mint || !publicKey) {
@@ -36,7 +36,8 @@ export function PositionCard({ mint, tokenSymbol = "TOKEN", className }: Positio
       return
     }
 
-    setIsLoading(true)
+    // Only show loading spinner on first fetch
+    if (!hasFetchedRef.current) setIsLoading(true)
     try {
       const [poolPDA] = getPoolPDA(mint)
       const [positionPDA] = getUserPositionPDA(poolPDA, publicKey)
@@ -54,13 +55,14 @@ export function PositionCard({ mint, tokenSymbol = "TOKEN", className }: Positio
       // Silent fail
     } finally {
       setIsLoading(false)
+      hasFetchedRef.current = true
     }
   }, [connection, mint, publicKey])
 
   useEffect(() => {
-    fetchData()
-    const interval = setInterval(fetchData, REFRESH_INTERVALS.POSITION)
-    return () => clearInterval(interval)
+    // Small delay to stagger initial requests
+    const timer = setTimeout(fetchData, 1000)
+    return () => clearTimeout(timer)
   }, [fetchData])
 
   // Calculate values from real data only
@@ -231,11 +233,6 @@ export function PositionCard({ mint, tokenSymbol = "TOKEN", className }: Positio
                 )}
               </div>
 
-              {/* Info note */}
-              <p className="text-xs text-[#5F6A6E] text-center flex items-center justify-center gap-1">
-                <Info className="w-3 h-3" />
-                Only on-platform trades are tracked
-              </p>
             </div>
           )}
         </CardContent>

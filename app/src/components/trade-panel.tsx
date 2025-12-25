@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useConnection, useWallet } from "@solana/wallet-adapter-react"
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,7 +13,6 @@ import { formatLamportsToSol, formatTokenAmount, calculateCostBasisForSale, isLo
 import { getPoolPDA, getUserPositionPDA, getCurveConfigPDA } from "@/lib/pdas"
 import { fetchPool, fetchUserPosition, fetchCurveConfig, calculateBuyOutput, calculateSellOutput, LiquidityPool, UserPosition, CurveConfiguration } from "@/lib/solana"
 import { createSwapTransaction } from "@/lib/program"
-import { REFRESH_INTERVALS } from "@/lib/constants"
 import { AlertTriangle, ArrowDown, ArrowUp, Zap, RefreshCw } from "lucide-react"
 
 interface TradePanelProps {
@@ -31,6 +30,7 @@ export function TradePanel({ mint, tokenSymbol = "TOKEN", onTradeComplete, class
   const [amount, setAmount] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isDataLoading, setIsDataLoading] = useState(true)
+  const hasFetchedRef = useRef(false)
 
   const [pool, setPool] = useState<LiquidityPool | null>(null)
   const [position, setPosition] = useState<UserPosition | null>(null)
@@ -43,7 +43,8 @@ export function TradePanel({ mint, tokenSymbol = "TOKEN", onTradeComplete, class
   const [taxAmount, setTaxAmount] = useState(0)
 
   const fetchData = useCallback(async () => {
-    setIsDataLoading(true)
+    // Only show loading spinner on first fetch
+    if (!hasFetchedRef.current) setIsDataLoading(true)
     try {
       if (mint) {
         const [poolPDA] = getPoolPDA(mint)
@@ -71,13 +72,14 @@ export function TradePanel({ mint, tokenSymbol = "TOKEN", onTradeComplete, class
       // Silent fail
     } finally {
       setIsDataLoading(false)
+      hasFetchedRef.current = true
     }
   }, [connection, mint, publicKey])
 
   useEffect(() => {
-    fetchData()
-    const interval = setInterval(fetchData, REFRESH_INTERVALS.TRADE_PANEL)
-    return () => clearInterval(interval)
+    // Small delay to avoid initial burst of requests
+    const timer = setTimeout(fetchData, 500)
+    return () => clearTimeout(timer)
   }, [fetchData])
 
   // Calculate estimates based on real pool data
@@ -90,7 +92,8 @@ export function TradePanel({ mint, tokenSymbol = "TOKEN", onTradeComplete, class
       return
     }
 
-    const feePct = config?.fees || 1
+    // config.fees is in basis points (100 = 1%), convert to percentage for calculation
+    const feePct = (config?.fees || 100) / 100
     const taxBps = config?.paperhandTaxBps || 5000
 
     if (activeTab === "buy") {
@@ -273,7 +276,7 @@ export function TradePanel({ mint, tokenSymbol = "TOKEN", onTradeComplete, class
             <div className="flex items-center gap-2">
               {isDataLoading && <RefreshCw className="w-4 h-4 text-[#5F6A6E] animate-spin" />}
               <Zap className="w-4 h-4 text-[#5F6A6E]" />
-              <span className="text-xs text-[#5F6A6E]">Bonding Curve</span>
+              <span className="text-xs text-[#5F6A6E]">Liquidity Pool</span>
             </div>
           </div>
         </CardHeader>
@@ -353,7 +356,7 @@ export function TradePanel({ mint, tokenSymbol = "TOKEN", onTradeComplete, class
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-[#5F6A6E]">Platform fee</span>
-                    <span className="text-[#9FA6A3]">{config?.fees || 1}%</span>
+                    <span className="text-[#9FA6A3]">{((config?.fees || 100) / 100).toFixed(1)}%</span>
                   </div>
                 </div>
 

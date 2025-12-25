@@ -7,46 +7,48 @@ import { PublicKey } from "@solana/web3.js";
 // ============================================================================
 
 // Network: "mainnet-beta", "devnet", or "localnet"
-// If NEXT_PUBLIC_NETWORK is not set, default to devnet (where program is initialized)
-// For mainnet: set NEXT_PUBLIC_NETWORK=mainnet-beta in Vercel env vars
-export const NETWORK = process.env.NEXT_PUBLIC_NETWORK || "devnet";
+// MAINNET ONLY
+export const NETWORK = process.env.NEXT_PUBLIC_NETWORK || "mainnet-beta";
 
-// RPC endpoint
-export const RPC_ENDPOINT = process.env.NEXT_PUBLIC_RPC_ENDPOINT || (
-    NETWORK === "mainnet-beta" ? "https://api.mainnet-beta.solana.com" :
-        NETWORK === "devnet" ? "https://api.devnet.solana.com" :
-            "http://127.0.0.1:8899" // localnet default
-);
+// RPC endpoint - QuickNode for mainnet (no rate limits)
+export const RPC_ENDPOINT = process.env.NEXT_PUBLIC_RPC_ENDPOINT || 
+    "https://small-twilight-sponge.solana-mainnet.quiknode.pro/71bdb31dd3e965467b1393cebaaebe69d481dbeb/";
 
-// WebSocket endpoint
-export const WS_ENDPOINT = process.env.NEXT_PUBLIC_WS_ENDPOINT || (
-    NETWORK === "mainnet-beta" ? "wss://api.mainnet-beta.solana.com" :
-        NETWORK === "devnet" ? "wss://api.devnet.solana.com" :
-            "ws://127.0.0.1:8900" // localnet default
-);
+// WebSocket endpoint - QuickNode
+export const WS_ENDPOINT = process.env.NEXT_PUBLIC_WS_ENDPOINT || 
+    "wss://small-twilight-sponge.solana-mainnet.quiknode.pro/71bdb31dd3e965467b1393cebaaebe69d481dbeb/";
 
 // ============================================================================
 // PROGRAM CONFIGURATION
 // These are your deployed program addresses
 // ============================================================================
 
-// Program ID (your deployed Solana program)
-// Devnet (NEW): DorUpzxXyF9VMGxdaVmBtCtg2SDnnm4pY3Bf9FFFKK6a (with virtual liquidity, clean state)
-// Devnet (OLD): 4dZia69H7vGWpJNbzcMP83TaWKFbDyWDRWe1stHDHrMe (config issue)
-// Mainnet: 8XQAVjtT1QSYgVp8WzhVdwuSvGfDX9UifZupiLvBe2Lh (old version)
+// Program ID - MAINNET
 export const PROGRAM_ID = new PublicKey(
-    process.env.NEXT_PUBLIC_PROGRAM_ID || "DorUpzxXyF9VMGxdaVmBtCtg2SDnnm4pY3Bf9FFFKK6a"
+    process.env.NEXT_PUBLIC_PROGRAM_ID || "Gctn6rSF7vnZoPTDWKfoa9B9f2BKLK46SySeksdp4QhL"
 );
 
 // Treasury wallet - where Paper Hand Tax goes
 export const TREASURY_WALLET = new PublicKey(
-    process.env.NEXT_PUBLIC_TREASURY_WALLET || "Gi2GLxRgXgtd6pyb378AhA4hcBEjbP6aNFWCfFgaAGoS"
+    process.env.NEXT_PUBLIC_TREASURY_WALLET || "HKH4j948aeCsr5kETMeshsDwRvFTuL6gWy4hLSKhqN27"
 );
 
 // Default token mint (optional, used for initial display)
 export const TOKEN_MINT = new PublicKey(
     process.env.NEXT_PUBLIC_TOKEN_MINT || "ydDccyq66xKtfqn5bsRpfFXz4WeF4fh3bgQBx1npump"
 );
+
+// ============================================================================
+// HIDDEN TOKENS CONFIG
+// Set HIDE_OLD_TOKENS to true to hide all tokens without the new JSON metadata
+// This effectively shows only tokens created after the social links update
+// ============================================================================
+export const HIDE_OLD_TOKENS = true; // Set to false to show all tokens
+
+// Specific tokens to always hide (regardless of HIDE_OLD_TOKENS setting)
+export const HIDDEN_TOKENS: string[] = [
+    // Add specific token addresses here if needed
+];
 
 // ============================================================================
 // SUPABASE (Optional - for analytics/tracking)
@@ -84,27 +86,26 @@ export const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkY
 export const IS_MAINNET = NETWORK === "mainnet-beta";
 
 // ============================================================================
-// REFRESH INTERVALS (slower on devnet to avoid rate limiting)
+// REFRESH INTERVALS - Longer intervals to avoid 429 rate limits
 // ============================================================================
-const IS_DEVNET = NETWORK === "devnet";
 
 export const REFRESH_INTERVALS = {
     // Balance refresh (header)
-    BALANCE: IS_DEVNET ? 30_000 : 10_000,           // 30s devnet, 10s mainnet
+    BALANCE: 30_000,              // 30s
     // Trade panel data
-    TRADE_PANEL: IS_DEVNET ? 45_000 : 15_000,        // 45s devnet, 15s mainnet
+    TRADE_PANEL: 60_000,          // 60s
     // Position card
-    POSITION: IS_DEVNET ? 45_000 : 15_000,           // 45s devnet, 15s mainnet
+    POSITION: 60_000,             // 60s
     // Token page data (chart, trades, holdings)
-    TOKEN_PAGE: IS_DEVNET ? 60_000 : 30_000,         // 60s devnet, 30s mainnet
+    TOKEN_PAGE: 60_000,           // 60s
     // Treasury card
-    TREASURY: IS_DEVNET ? 60_000 : 30_000,           // 60s devnet, 30s mainnet
+    TREASURY: 120_000,            // 2 min
     // Activity feed
-    ACTIVITY: IS_DEVNET ? 60_000 : 30_000,           // 60s devnet, 30s mainnet
+    ACTIVITY: 120_000,            // 2 min
     // Explore section (coin list)
-    EXPLORE: IS_DEVNET ? 120_000 : 60_000,           // 120s devnet, 60s mainnet
+    EXPLORE: 180_000,             // 3 min
     // SOL price from CoinGecko
-    SOL_PRICE: IS_DEVNET ? 120_000 : 60_000,         // 120s devnet, 60s mainnet
+    SOL_PRICE: 120_000,           // 2 min
     // Leaderboard
-    LEADERBOARD: IS_DEVNET ? 60_000 : 30_000,        // 60s devnet, 30s mainnet
+    LEADERBOARD: 120_000,         // 2 min
 };

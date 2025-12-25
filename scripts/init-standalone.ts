@@ -11,20 +11,20 @@ import * as fs from "fs";
 import IDL from "../app/src/lib/idl/pump.json";
 
 // ============================================================================
-// CONFIGURATION - DEVNET
+// CONFIGURATION - MAINNET (QuickNode)
 // ============================================================================
-const RPC_URL = "https://api.devnet.solana.com";
-const WALLET_PATH = "./id.json"; // Path to your devnet wallet keypair
+const RPC_URL = "https://small-twilight-sponge.solana-mainnet.quiknode.pro/71bdb31dd3e965467b1393cebaaebe69d481dbeb/";
+const WALLET_PATH = "./id.json"; // Path to your mainnet wallet keypair
 
-// Program ID from IDL
-const PROGRAM_ID = new PublicKey(IDL.address);
+// Program ID - MAINNET
+const PROGRAM_ID = new PublicKey("Gctn6rSF7vnZoPTDWKfoa9B9f2BKLK46SySeksdp4QhL");
 
-// Initialization parameters
-const FEE_BPS = 100; // 1% trading fee (100 bps)
-const PAPERHAND_TAX_BPS = 5000; // 50% tax (5000 bps)
+// Initialization parameters (in basis points: 100 = 1%, 5000 = 50%)
+const FEE_BPS = 100; // 1% trading fee
+const PAPERHAND_TAX_BPS = 5000; // 50% paper hand tax
 
-// Treasury wallet (where taxes go)
-const TREASURY_WALLET = new PublicKey("Gi2GLxRgXgtd6pyb378AhA4hcBEjbP6aNFWCfFgaAGoS");
+// Treasury wallet (where taxes go) - MAINNET
+const TREASURY_WALLET = new PublicKey("HKH4j948aeCsr5kETMeshsDwRvFTuL6gWy4hLSKhqN27");
 
 async function main() {
     console.log("=".repeat(60));

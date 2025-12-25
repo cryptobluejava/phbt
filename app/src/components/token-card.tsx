@@ -5,7 +5,7 @@ import { PublicKey } from "@solana/web3.js"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Copy, Check, ExternalLink, RefreshCw } from "lucide-react"
+import { Copy, Check, ExternalLink, RefreshCw, Globe, Twitter, Send } from "lucide-react"
 import { TokenMetadata } from "@/hooks/use-token-page-data"
 import { getSolscanTokenUrl } from "@/lib/format"
 import { IS_MAINNET } from "@/lib/constants"
@@ -16,14 +16,27 @@ interface TokenCardProps {
   isLoading: boolean
 }
 
+// Format large numbers: 1,000,000,000 -> "1B", 500,000,000 -> "500M"
+function formatSupply(supply: number): string {
+  if (supply >= 1_000_000_000) {
+    const billions = supply / 1_000_000_000
+    return billions % 1 === 0 ? `${billions}B` : `${billions.toFixed(1)}B`
+  }
+  if (supply >= 1_000_000) {
+    const millions = supply / 1_000_000
+    return millions % 1 === 0 ? `${millions}M` : `${millions.toFixed(1)}M`
+  }
+  return supply.toLocaleString()
+}
+
 export function TokenCard({ mint, metadata, isLoading }: TokenCardProps) {
-  const [copied, setCopied] = useState(false)
+  const [copiedCA, setCopiedCA] = useState(false)
   const [imageError, setImageError] = useState(false)
 
   const copyCA = async () => {
     await navigator.clipboard.writeText(mint.toBase58())
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    setCopiedCA(true)
+    setTimeout(() => setCopiedCA(false), 2000)
   }
 
   const displayName = metadata?.name || "Loading..."
@@ -73,7 +86,7 @@ export function TokenCard({ mint, metadata, isLoading }: TokenCardProps) {
               onClick={copyCA}
               className="shrink-0 h-9 w-9 hover:bg-[#1A2428] hover:text-[#E9E1D8]"
             >
-              {copied ? (
+              {copiedCA ? (
                 <Check className="w-4 h-4 text-[#E9E1D8]" />
               ) : (
                 <Copy className="w-4 h-4 text-[#5F6A6E]" />
@@ -92,13 +105,55 @@ export function TokenCard({ mint, metadata, isLoading }: TokenCardProps) {
           </div>
         </div>
 
+        {/* Social Links - only show if any exist */}
+        {(metadata?.website || metadata?.twitter || metadata?.telegram) && (
+          <>
+            <div className="divider-line" />
+            <div className="flex items-center gap-2">
+              {metadata?.website && (
+                <a
+                  href={metadata.website.startsWith('http') ? metadata.website : `https://${metadata.website}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#0E1518] border border-[#2A3338] hover:border-[#8C3A32] transition-colors"
+                >
+                  <Globe className="w-4 h-4 text-[#9FA6A3]" />
+                  <span className="text-sm text-[#9FA6A3]">Website</span>
+                </a>
+              )}
+              {metadata?.twitter && (
+                <a
+                  href={metadata.twitter.startsWith('http') ? metadata.twitter : `https://twitter.com/${metadata.twitter.replace('@', '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#0E1518] border border-[#2A3338] hover:border-[#8C3A32] transition-colors"
+                >
+                  <Twitter className="w-4 h-4 text-[#9FA6A3]" />
+                  <span className="text-sm text-[#9FA6A3]">Twitter</span>
+                </a>
+              )}
+              {metadata?.telegram && (
+                <a
+                  href={metadata.telegram.startsWith('http') ? metadata.telegram : `https://t.me/${metadata.telegram.replace('@', '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#0E1518] border border-[#2A3338] hover:border-[#8C3A32] transition-colors"
+                >
+                  <Send className="w-4 h-4 text-[#9FA6A3]" />
+                  <span className="text-sm text-[#9FA6A3]">Telegram</span>
+                </a>
+              )}
+            </div>
+          </>
+        )}
+
         <div className="divider-line" />
 
         <div className="grid grid-cols-2 gap-4">
           <div className="p-3 rounded-lg bg-[#0E1518] border border-[#2A3338]">
             <span className="text-xs text-[#5F6A6E] block mb-1">Total Supply</span>
             <span className="text-sm text-[#E9E1D8] text-value md:text-base">
-              {metadata ? `${(metadata.totalSupply / 1_000_000).toLocaleString(undefined, { maximumFractionDigits: 0 })}M` : "--"}
+              {metadata ? formatSupply(metadata.totalSupply) : "--"}
             </span>
           </div>
           <div className="p-3 rounded-lg bg-[#0E1518] border border-[#2A3338]">

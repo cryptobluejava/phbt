@@ -55,8 +55,9 @@ export function ActivityFeed() {
 
   useEffect(() => {
     fetchTransactions()
-    const interval = setInterval(fetchTransactions, REFRESH_INTERVALS.ACTIVITY) // Refresh using config
-    return () => clearInterval(interval)
+    // Disabled auto-refresh to reduce RPC calls
+    // const interval = setInterval(fetchTransactions, REFRESH_INTERVALS.ACTIVITY)
+    // return () => clearInterval(interval)
   }, [fetchTransactions])
 
   return (

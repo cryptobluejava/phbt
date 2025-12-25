@@ -47,8 +47,9 @@ export function TreasuryCard({ className }: TreasuryCardProps) {
 
   useEffect(() => {
     fetchData()
-    const interval = setInterval(fetchData, REFRESH_INTERVALS.TREASURY)
-    return () => clearInterval(interval)
+    // Disabled auto-refresh to reduce RPC calls
+    // const interval = setInterval(fetchData, REFRESH_INTERVALS.TREASURY)
+    // return () => clearInterval(interval)
   }, [fetchData])
 
   const copyToClipboard = async (text: string, type: 'treasury' | 'program') => {
@@ -104,9 +105,9 @@ export function TreasuryCard({ className }: TreasuryCardProps) {
 
           <div className="divider-line" />
 
-          {/* Treasury Vault (PDA) */}
+          {/* Treasury Wallet */}
           <div className="space-y-2">
-            <label className="text-label">Treasury Vault (PDA)</label>
+            <label className="text-label">Treasury Wallet</label>
             <div className="flex items-center gap-2">
               <code className="flex-1 text-sm text-[#9FA6A3] bg-[#0E1518] rounded-lg px-3 py-2.5 font-mono border border-[#2A3338] truncate">
                 {treasuryVaultAddress ? shortenPubkey(treasuryVaultAddress, 6) : "..."}

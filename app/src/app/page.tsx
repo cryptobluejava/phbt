@@ -107,7 +107,7 @@ export default function Home() {
               <div className="flex items-center gap-6 text-xs text-[#5F6A6E]">
                 <span className="font-medium text-[#9FA6A3]">Paper Hand Bitch Tax</span>
                 <span className="w-px h-3 bg-[#2A3338]" />
-                <span>Solana Devnet</span>
+                <span>Solana Mainnet</span>
                 <span className="w-px h-3 bg-[#2A3338]" />
                 <a href="#" className="hover:text-[#9FA6A3] transition-colors">Docs</a>
                 <span className="w-px h-3 bg-[#2A3338]" />

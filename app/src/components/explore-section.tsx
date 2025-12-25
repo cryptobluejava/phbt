@@ -5,7 +5,7 @@ import { useConnection } from "@solana/wallet-adapter-react"
 import { PublicKey } from "@solana/web3.js"
 import { Card, CardContent } from "@/components/ui/card"
 import { RefreshCw, Rocket, ExternalLink } from "lucide-react"
-import { PROGRAM_ID, POOL_SEED_PREFIX, TOKEN_METADATA_PROGRAM_ID, REFRESH_INTERVALS } from "@/lib/constants"
+import { PROGRAM_ID, POOL_SEED_PREFIX, TOKEN_METADATA_PROGRAM_ID, REFRESH_INTERVALS, HIDDEN_TOKENS, HIDE_OLD_TOKENS } from "@/lib/constants"
 import { formatLamportsToSol } from "@/lib/format"
 import Link from "next/link"
 import { BN } from "bn.js"
@@ -74,88 +74,123 @@ export function ExploreSection() {
         setIsLoading(true)
         try {
             // Support both old (97 bytes) and new (105 bytes) pool formats
-            // Old: 8 + 32 + 32 + 8 + 8 + 8 + 1 = 97 bytes (no virtual_sol_reserve)
-            // New: 8 + 32 + 32 + 8 + 8 + 8 + 8 + 1 = 105 bytes (with virtual_sol_reserve)
             const OLD_POOL_SIZE = 97
             const NEW_POOL_SIZE = 105
 
-            // Fetch both old and new pool formats
-            const [oldAccounts, newAccounts] = await Promise.all([
-                connection.getProgramAccounts(PROGRAM_ID, {
-                    filters: [{ dataSize: OLD_POOL_SIZE }]
-                }),
-                connection.getProgramAccounts(PROGRAM_ID, {
-                    filters: [{ dataSize: NEW_POOL_SIZE }]
-                })
-            ])
+            // Fetch pool accounts - do sequentially to avoid rate limits
+            const oldAccounts = await connection.getProgramAccounts(PROGRAM_ID, {
+                filters: [{ dataSize: OLD_POOL_SIZE }]
+            })
+            
+            // Longer delay between calls to avoid 429
+            await new Promise(r => setTimeout(r, 500))
+            
+            const newAccounts = await connection.getProgramAccounts(PROGRAM_ID, {
+                filters: [{ dataSize: NEW_POOL_SIZE }]
+            })
 
             const allAccounts = [
                 ...oldAccounts.map(a => ({ ...a, isNewFormat: false })),
                 ...newAccounts.map(a => ({ ...a, isNewFormat: true }))
             ]
 
-            const parsedCoins: LaunchedCoin[] = []
+            // First pass: parse pool data without metadata
+            const poolsWithMints: Array<{
+                pubkey: PublicKey
+                tokenOne: PublicKey
+                reserveOne: BN
+                reserveTwo: BN
+            }> = []
 
-            for (const { pubkey, account, isNewFormat } of allAccounts) {
+            for (const { pubkey, account } of allAccounts) {
                 try {
                     const data = account.data.slice(8)
                     const tokenOne = new PublicKey(data.slice(0, 32))
-
-                    // Parse reserves - offsets are same for both formats:
-                    // token_one: 0-32, token_two: 32-64, total_supply: 64-72, 
-                    // reserve_one: 72-80, reserve_two: 80-88
                     const reserveOne = new BN(data.slice(72, 80), 'le')
                     const reserveTwo = new BN(data.slice(80, 88), 'le')
 
-                    // Skip if mint is System Program (invalid/uninitialized pool)
+                    // Skip invalid pools
                     if (tokenOne.toBase58() === "11111111111111111111111111111111") {
                         continue
                     }
 
-                    // Fetch Metaplex metadata
-                    let name = `Token ${tokenOne.toBase58().slice(0, 6)}...`
-                    let symbol = tokenOne.toBase58().slice(0, 4).toUpperCase()
-                    let image: string | null = null
-
-                    try {
-                        const metadataPDA = getMetadataPDA(tokenOne)
-                        const metadataAccount = await connection.getAccountInfo(metadataPDA)
-
-                        if (metadataAccount) {
-                            const parsed = parseMetadata(metadataAccount.data)
-                            console.log(parsed)
-                            if (parsed) {
-                                name = parsed.name || name
-                                symbol = parsed.symbol || symbol
-
-                                // URI now stores the raw image URL directly (not JSON metadata)
-                                // Filter out invalid placeholder URLs from old launches
-                                const isValidImageUrl = parsed.uri &&
-                                    parsed.uri.startsWith('http') &&
-                                    !parsed.uri.includes('placeholder-') &&
-                                    !parsed.uri.includes('arweave.net/placeholder')
-
-                                if (isValidImageUrl) {
-                                    image = parsed.uri
-                                }
-                            }
-                        }
-                    } catch (e) {
-                        // Metadata fetch failed, use defaults
-                    }
-
-                    parsedCoins.push({
-                        mint: tokenOne,
-                        pool: pubkey,
-                        name,
-                        symbol,
-                        image,
-                        tokenReserve: reserveOne.toNumber(),
-                        solReserve: reserveTwo.toNumber(),
-                    })
+                    poolsWithMints.push({ pubkey, tokenOne, reserveOne, reserveTwo })
                 } catch (e) {
                     console.error("Failed to parse pool:", pubkey.toBase58(), e)
                 }
+            }
+
+            // Batch fetch all metadata accounts at once (much faster!)
+            const metadataPDAs = poolsWithMints.map(p => getMetadataPDA(p.tokenOne))
+            
+            await new Promise(r => setTimeout(r, 500))
+            
+            const metadataAccounts = await connection.getMultipleAccountsInfo(metadataPDAs)
+
+            // Build final list with metadata, filtering out hidden tokens
+            const parsedCoins: LaunchedCoin[] = []
+            
+            for (let i = 0; i < poolsWithMints.length; i++) {
+                const pool = poolsWithMints[i]
+                const mintAddress = pool.tokenOne.toBase58()
+                
+                // Skip explicitly hidden tokens
+                if (HIDDEN_TOKENS.includes(mintAddress)) {
+                    continue
+                }
+                
+                let name = `Token ${mintAddress.slice(0, 6)}...`
+                let symbol = mintAddress.slice(0, 4).toUpperCase()
+                let image: string | null = null
+                let hasNewMetadataFormat = false
+
+                const metadataAccount = metadataAccounts[i]
+                if (metadataAccount) {
+                    const parsed = parseMetadata(metadataAccount.data)
+                    if (parsed) {
+                        name = parsed.name || name
+                        symbol = parsed.symbol || symbol
+
+                        // Check if URI is a data URI (new JSON metadata format)
+                        if (parsed.uri?.startsWith('data:application/json;base64,')) {
+                            hasNewMetadataFormat = true
+                            try {
+                                const base64Data = parsed.uri.replace('data:application/json;base64,', '')
+                                const jsonStr = Buffer.from(base64Data, 'base64').toString('utf8')
+                                const jsonMeta = JSON.parse(jsonStr)
+                                if (jsonMeta.image) {
+                                    image = jsonMeta.image
+                                }
+                            } catch (e) {
+                                // Ignore parse errors
+                            }
+                        } else {
+                            const isValidImageUrl = parsed.uri &&
+                                parsed.uri.startsWith('http') &&
+                                !parsed.uri.includes('placeholder-') &&
+                                !parsed.uri.includes('arweave.net/placeholder')
+
+                            if (isValidImageUrl) {
+                                image = parsed.uri
+                            }
+                        }
+                    }
+                }
+                
+                // If HIDE_OLD_TOKENS is enabled, skip tokens without new metadata format
+                if (HIDE_OLD_TOKENS && !hasNewMetadataFormat) {
+                    continue
+                }
+
+                parsedCoins.push({
+                    mint: pool.tokenOne,
+                    pool: pool.pubkey,
+                    name,
+                    symbol,
+                    image,
+                    tokenReserve: pool.reserveOne.toNumber(),
+                    solReserve: pool.reserveTwo.toNumber(),
+                })
             }
 
             setCoins(parsedCoins)
@@ -167,9 +202,12 @@ export function ExploreSection() {
     }, [connection])
 
     useEffect(() => {
-        fetchLaunchedCoins()
-        const interval = setInterval(fetchLaunchedCoins, REFRESH_INTERVALS.EXPLORE)
-        return () => clearInterval(interval)
+        // Delay initial fetch to avoid simultaneous RPC calls with other components
+        const timer = setTimeout(() => {
+            fetchLaunchedCoins()
+        }, 1500) // Increased delay to spread out RPC calls
+        return () => clearTimeout(timer)
+        // Disabled auto-refresh to reduce RPC calls
     }, [fetchLaunchedCoins])
 
     return (
@@ -200,7 +238,7 @@ export function ExploreSection() {
                         className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#8C3A32] text-[#E9E1D8] text-sm font-medium hover:bg-[#A04438] transition-colors"
                     >
                         <Rocket className="w-4 h-4" />
-                        Launch Token
+                        Create Coin
                     </Link>
                 </div>
             </div>
@@ -221,7 +259,7 @@ export function ExploreSection() {
                             href="/launch"
                             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#8C3A32] text-[#E9E1D8] text-sm font-medium hover:bg-[#A04438] transition-colors"
                         >
-                            🚀 Launch Your Token
+                            Create Your Coin
                         </Link>
                     </CardContent>
                 </Card>

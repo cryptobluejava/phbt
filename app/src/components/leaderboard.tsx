@@ -26,8 +26,9 @@ export function Leaderboard() {
 
   useEffect(() => {
     fetchData()
-    const interval = setInterval(fetchData, REFRESH_INTERVALS.LEADERBOARD)
-    return () => clearInterval(interval)
+    // Disabled auto-refresh to reduce RPC calls
+    // const interval = setInterval(fetchData, REFRESH_INTERVALS.LEADERBOARD)
+    // return () => clearInterval(interval)
   }, [fetchData])
 
   return (
