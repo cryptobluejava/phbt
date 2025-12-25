@@ -7,12 +7,9 @@ import { PublicKey } from "@solana/web3.js";
 // ============================================================================
 
 // Network: "mainnet-beta", "devnet", or "localnet"
-// If NEXT_PUBLIC_NETWORK is not set, default based on NODE_ENV:
-// - development -> localnet
-// - production -> mainnet-beta
-export const NETWORK = process.env.NEXT_PUBLIC_NETWORK || (
-    process.env.NODE_ENV === "development" ? "localnet" : "mainnet-beta"
-);
+// If NEXT_PUBLIC_NETWORK is not set, default to devnet (where program is initialized)
+// For mainnet: set NEXT_PUBLIC_NETWORK=mainnet-beta in Vercel env vars
+export const NETWORK = process.env.NEXT_PUBLIC_NETWORK || "devnet";
 
 // RPC endpoint
 export const RPC_ENDPOINT = process.env.NEXT_PUBLIC_RPC_ENDPOINT || (

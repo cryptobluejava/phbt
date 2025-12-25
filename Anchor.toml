@@ -9,13 +9,13 @@ skip-lint = false
 pump = "F6pyw8jcNrKLDhdjkrvfGHskzp64x61FX2ADcbj3Xktw"
 
 [programs.mainnet]
-pump = "8XQAVjtT1QSYgVp8WzhVdwuSvGfDX9UifZupiLvBe2Lh"
+pump = "6kmXSnjP83nkiJZNWpM4mmRU8q6nQamLSE8fxGvoTPeS"
 
 [registry]
 url = "https://api.devnet.solana.com"
 
 [provider]
-cluster = "devnet"
+cluster = "Devnet"
 wallet = "./id.json"
 
 [scripts]

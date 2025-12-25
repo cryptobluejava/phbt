@@ -8,7 +8,7 @@ pub mod utils;
 
 use crate::instructions::*;
 
-declare_id!("F6pyw8jcNrKLDhdjkrvfGHskzp64x61FX2ADcbj3Xktw");
+declare_id!("6kmXSnjP83nkiJZNWpM4mmRU8q6nQamLSE8fxGvoTPeS");
 
 #[program]
 pub mod pump {
