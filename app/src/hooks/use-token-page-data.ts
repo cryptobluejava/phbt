@@ -337,11 +337,16 @@ export function useTokenPageData(mint: PublicKey) {
         }
     }, [connection, mint])
 
+    // Store fetchAllData in a ref so useEffect doesn't re-run when it changes
+    const fetchRef = useRef(fetchAllData)
+    fetchRef.current = fetchAllData
+
     useEffect(() => {
         // Reset state when mint changes
         if (mintKeyRef.current !== mint.toBase58()) {
             mintKeyRef.current = mint.toBase58()
             hasFetchedRef.current = false
+            fetchingRef.current = false
             setData({
                 metadata: null,
                 trades: [],
@@ -353,16 +358,16 @@ export function useTokenPageData(mint: PublicKey) {
             })
         }
 
+        // Only fetch if we haven't already
+        if (hasFetchedRef.current) return
+
         // Small delay before initial fetch to let page render
         const initialDelay = setTimeout(() => {
-            fetchAllData()
+            fetchRef.current()
         }, 500)
         
         return () => clearTimeout(initialDelay)
-
-        // Disabled auto-refresh to reduce RPC calls
-        // Manual refresh via refetch() when needed
-    }, [fetchAllData, mint])
+    }, [mint]) // Only depend on mint, not fetchAllData
 
     return { ...data, refetch: fetchAllData }
 }
