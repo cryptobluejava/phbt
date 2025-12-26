@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { createChart, ColorType, IChartApi, ISeriesApi, Time, AreaSeries, HistogramSeries, CrosshairMode } from "lightweight-charts"
-import { RefreshCw, TrendingUp, TrendingDown, Activity, Circle } from "lucide-react"
+import { RefreshCw, TrendingUp, TrendingDown, Activity } from "lucide-react"
 import { Trade } from "@/hooks/use-token-page-data"
 import { getSolPrice, formatUSD } from "@/lib/sol-price"
 import { REFRESH_INTERVALS } from "@/lib/constants"
@@ -239,16 +239,6 @@ export function TradingChart({ trades, totalSupply, tokenSymbol, isLoading, isRe
         seriesRef.current.setData(priceData)
         volumeSeriesRef.current?.setData(volumeData)
 
-        // Add markers for buys/sells
-        const markers = sortedTrades.map((trade, i) => ({
-            time: priceData[i].time,
-            position: trade.type === "buy" ? 'belowBar' as const : 'aboveBar' as const,
-            color: trade.type === "buy" ? '#22c55e' : '#ef4444',
-            shape: trade.type === "buy" ? 'arrowUp' as const : 'arrowDown' as const,
-            size: 0.5,
-        }))
-        seriesRef.current.setMarkers(markers)
-
         // Fit content
         chartRef.current?.timeScale().fitContent()
     }, [trades, totalSupply, solPrice])
@@ -308,12 +298,6 @@ export function TradingChart({ trades, totalSupply, tokenSymbol, isLoading, isRe
                     <span className="flex items-center gap-1.5">
                         <Activity className="w-3.5 h-3.5 text-[#8C3A32]" />
                         Price Chart (USD)
-                    </span>
-                    <span className="hidden sm:flex items-center gap-1">
-                        <Circle className="w-2 h-2 fill-green-500 text-green-500" /> Buy
-                    </span>
-                    <span className="hidden sm:flex items-center gap-1">
-                        <Circle className="w-2 h-2 fill-red-500 text-red-500" /> Sell
                     </span>
                 </div>
                 
