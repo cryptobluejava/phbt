@@ -5,7 +5,7 @@ import { useConnection } from "@solana/wallet-adapter-react"
 import { PublicKey } from "@solana/web3.js"
 import { Card, CardContent } from "@/components/ui/card"
 import { RefreshCw, Rocket, ExternalLink, Search, SlidersHorizontal, Star, StarOff } from "lucide-react"
-import { PROGRAM_ID, POOL_SEED_PREFIX, TOKEN_METADATA_PROGRAM_ID, REFRESH_INTERVALS, HIDDEN_TOKENS, HIDE_OLD_TOKENS, ALLOWED_TOKENS } from "@/lib/constants"
+import { PROGRAM_ID, POOL_SEED_PREFIX, TOKEN_METADATA_PROGRAM_ID, REFRESH_INTERVALS, HIDDEN_TOKENS, HIDE_OLD_TOKENS, ALLOWED_TOKENS, TOKEN_CATEGORIES, TokenCategory } from "@/lib/constants"
 import { formatLamportsToSol } from "@/lib/format"
 import Link from "next/link"
 import { BN } from "bn.js"
@@ -20,6 +20,7 @@ interface LaunchedCoin {
     image: string | null
     tokenReserve: number
     solReserve: number
+    category: TokenCategory | null
 }
 
 // Helper to derive metadata PDA
@@ -74,6 +75,7 @@ export function ExploreSection() {
     const [searchQuery, setSearchQuery] = useState("")
     const [sortBy, setSortBy] = useState<SortOption>('liquidity')
     const [watchlist, setWatchlist] = useState<string[]>([])
+    const [categoryFilter, setCategoryFilter] = useState<TokenCategory | 'all'>('all')
     
     // Load watchlist from localStorage on mount
     useEffect(() => {
@@ -101,6 +103,11 @@ export function ExploreSection() {
     // Filter and sort coins
     const filteredCoins = coins
         .filter(coin => {
+            // Category filter
+            if (categoryFilter !== 'all' && coin.category !== categoryFilter) {
+                return false
+            }
+            // Search filter
             if (!searchQuery) return true
             const query = searchQuery.toLowerCase()
             return coin.name.toLowerCase().includes(query) || 
@@ -196,6 +203,7 @@ export function ExploreSection() {
                 let name = `Token ${mintAddress.slice(0, 6)}...`
                 let symbol = mintAddress.slice(0, 4).toUpperCase()
                 let image: string | null = null
+                let category: TokenCategory | null = null
                 let hasNewMetadataFormat = false
 
                 const metadataAccount = metadataAccounts[i]
@@ -215,12 +223,24 @@ export function ExploreSection() {
                                 if (jsonMeta.image) {
                                     image = jsonMeta.image
                                 }
+                                if (jsonMeta.c || jsonMeta.category) {
+                                    category = (jsonMeta.c || jsonMeta.category) as TokenCategory
+                                }
                             } catch (e) {
                                 // Ignore parse errors
                             }
                         } else if (parsed.uri?.startsWith('data:,')) {
                             // New compact format - also counts as new metadata
                             hasNewMetadataFormat = true
+                            try {
+                                const jsonStr = decodeURIComponent(parsed.uri.replace('data:,', ''))
+                                const jsonMeta = JSON.parse(jsonStr)
+                                if (jsonMeta.c || jsonMeta.category) {
+                                    category = (jsonMeta.c || jsonMeta.category) as TokenCategory
+                                }
+                            } catch (e) {
+                                // Ignore parse errors
+                            }
                         } else {
                             const isValidImageUrl = parsed.uri &&
                                 parsed.uri.startsWith('http') &&
@@ -231,6 +251,17 @@ export function ExploreSection() {
                                 image = parsed.uri
                                 // HTTP image URLs also count as new format
                                 hasNewMetadataFormat = true
+                                
+                                // Try to extract category from query params
+                                try {
+                                    const url = new URL(parsed.uri)
+                                    const catParam = url.searchParams.get('cat')
+                                    if (catParam && TOKEN_CATEGORIES.some(c => c.id === catParam)) {
+                                        category = catParam as TokenCategory
+                                    }
+                                } catch (e) {
+                                    // Ignore URL parse errors
+                                }
                             }
                         }
                     }
@@ -251,6 +282,7 @@ export function ExploreSection() {
                     image,
                     tokenReserve: pool.reserveOne.toNumber(),
                     solReserve: pool.reserveTwo.toNumber(),
+                    category,
                 })
             }
 
@@ -304,6 +336,35 @@ export function ExploreSection() {
                 </div>
             </div>
             
+            {/* Category Filter */}
+            <div className="flex flex-wrap gap-2 mb-4">
+                <button
+                    onClick={() => setCategoryFilter('all')}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                        categoryFilter === 'all'
+                            ? 'bg-[#8C3A32] text-[#E9E1D8]'
+                            : 'bg-[#141D21] border border-[#2A3338] text-[#9FA6A3] hover:border-[#5F6A6E]'
+                    }`}
+                >
+                    All
+                </button>
+                {TOKEN_CATEGORIES.map((cat) => (
+                    <button
+                        key={cat.id}
+                        onClick={() => setCategoryFilter(cat.id)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                            categoryFilter === cat.id
+                                ? 'text-[#E9E1D8]'
+                                : 'bg-[#141D21] border border-[#2A3338] text-[#9FA6A3] hover:border-[#5F6A6E]'
+                        }`}
+                        style={categoryFilter === cat.id ? { backgroundColor: cat.color } : {}}
+                    >
+                        <span>{cat.emoji}</span>
+                        <span className="hidden sm:inline">{cat.label}</span>
+                    </button>
+                ))}
+            </div>
+
             {/* Search and Filters */}
             <div className="flex flex-col sm:flex-row gap-3 mb-6">
                 {/* Search Input */}
@@ -415,6 +476,16 @@ export function ExploreSection() {
                                     <div className="absolute top-3 right-3 px-2 py-1 rounded-lg bg-[#0E1518]/80 backdrop-blur-sm border border-[#2A3338]">
                                         <span className="text-xs font-medium text-[#E9E1D8]">${coin.symbol}</span>
                                     </div>
+                                    
+                                    {/* Category badge */}
+                                    {coin.category && (
+                                        <div 
+                                            className="absolute bottom-3 left-3 px-2 py-1 rounded-lg backdrop-blur-sm text-xs font-medium text-white"
+                                            style={{ backgroundColor: TOKEN_CATEGORIES.find(c => c.id === coin.category)?.color || '#8C3A32' }}
+                                        >
+                                            {TOKEN_CATEGORIES.find(c => c.id === coin.category)?.emoji} {TOKEN_CATEGORIES.find(c => c.id === coin.category)?.label}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Info Section */}

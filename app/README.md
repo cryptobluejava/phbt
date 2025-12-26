@@ -1,5 +1,22 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Environment Variables
+
+Create a `.env.local` file in the `app` directory with:
+
+```bash
+# Required
+NEXT_PUBLIC_NETWORK=mainnet-beta
+NEXT_PUBLIC_RPC_ENDPOINT=your-rpc-endpoint
+NEXT_PUBLIC_PROGRAM_ID=your-program-id
+NEXT_PUBLIC_TREASURY_WALLET=your-treasury-wallet
+
+# Optional - Database API for watchlist & achievements
+# Set these in Vercel for production (not in git)
+NEXT_PUBLIC_DATABASE_API_URL=https://your-api.com
+DATABASE_API_KEY=your-secret-api-key
+```
+
 ## Getting Started
 
 First, run the development server:

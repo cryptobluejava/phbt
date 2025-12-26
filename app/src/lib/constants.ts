@@ -102,6 +102,53 @@ export const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkY
 export const IS_MAINNET = NETWORK === "mainnet-beta";
 
 // ============================================================================
+// TOKEN CATEGORIES
+// ============================================================================
+
+export const TOKEN_CATEGORIES = [
+    { id: 'meme', label: 'Meme', emoji: '🐸', color: '#22C55E' },
+    { id: 'defi', label: 'DeFi', emoji: '💰', color: '#3B82F6' },
+    { id: 'gaming', label: 'Gaming', emoji: '🎮', color: '#A855F7' },
+    { id: 'ai', label: 'AI', emoji: '🤖', color: '#06B6D4' },
+    { id: 'nft', label: 'NFT', emoji: '🖼️', color: '#EC4899' },
+    { id: 'social', label: 'Social', emoji: '💬', color: '#F59E0B' },
+    { id: 'utility', label: 'Utility', emoji: '⚙️', color: '#6B7280' },
+    { id: 'other', label: 'Other', emoji: '✨', color: '#8C3A32' },
+] as const;
+
+export type TokenCategory = typeof TOKEN_CATEGORIES[number]['id'];
+
+// ============================================================================
+// DATABASE API (for watchlist, achievements, etc.)
+// ============================================================================
+
+export const DATABASE_API_URL = process.env.NEXT_PUBLIC_DATABASE_API_URL || "";
+export const DATABASE_API_KEY = process.env.DATABASE_API_KEY || "";
+
+// ============================================================================
+// PHBI TOKENS (Paper Hand Bitch Index)
+// ============================================================================
+
+export const PUMP_TOKEN = "8FffyZvj3LugcrVwr1jpDb33zmzMQk2pvLqXJtK5pump";
+export const PHBT_TOKEN = "FBCnkZ41gv1TLt7aCA7CUonBk3YNVJZsYvfQYNSJmDRz";
+
+// ============================================================================
+// LEGACY TOKENS (no bonding curve display)
+// ============================================================================
+
+export const LEGACY_TOKENS_NO_BONDING_CURVE: string[] = [
+    "HuUmDn2ZAmyUa47yMCEx43Zx2vKseuKttDpvDyuNgnoN",
+    "6mhKNZmhAYSjA5D9WG3kJyMp3QC36PCKWnULL3m79kns",
+    "eB7PVzhG1oDgZJKBrHq3MAtLv9vzsv6v9DfCoq7WT1T",
+    "BtzJGjoNnUjVCUfBg2mV72p32WPaDtSqXNAXbo8JfkYn",
+    "71KTBNJNAewB2NWWbwpGuDmwPLTCfRh7QKL5KbczHbCC",
+    "FBCnkZ41gv1TLt7aCA7CUonBk3YNVJZsYvfQYNSJmDRz",
+    "HRPuKxPUvDeEb4LnTKN44BrCYf3Zm6BV6mAshKbMN1um",
+    "CrReZfCYQh1Tj6geGHJNvGUJhna43oERJbDdUXu3N1V1",
+    "C1TMRcAxLZGjLuD17L9KKTmfGyQVjDfoYBnFHkoZxwX2",
+];
+
+// ============================================================================
 // REFRESH INTERVALS - Longer intervals to avoid 429 rate limits
 // ============================================================================
 

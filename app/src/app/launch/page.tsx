@@ -9,7 +9,7 @@ import {
     ASSOCIATED_TOKEN_PROGRAM_ID,
     getAssociatedTokenAddressSync
 } from "@solana/spl-token"
-import { PROGRAM_ID, CURVE_CONFIG_SEED, POOL_SEED_PREFIX, GLOBAL_SEED, LAMPORTS_PER_SOL, TOKEN_METADATA_PROGRAM_ID, NETWORK, RPC_ENDPOINT } from "@/lib/constants"
+import { PROGRAM_ID, CURVE_CONFIG_SEED, POOL_SEED_PREFIX, GLOBAL_SEED, LAMPORTS_PER_SOL, TOKEN_METADATA_PROGRAM_ID, NETWORK, RPC_ENDPOINT, TOKEN_CATEGORIES, TokenCategory } from "@/lib/constants"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -29,6 +29,7 @@ export default function LaunchPage() {
     const [website, setWebsite] = useState("")
     const [twitter, setTwitter] = useState("")
     const [telegram, setTelegram] = useState("")
+    const [category, setCategory] = useState<TokenCategory>("meme")
     // Fixed defaults - not editable by users
     const decimals = 6
     const initialSupply = "1000000000"
@@ -200,25 +201,24 @@ export default function LaunchPage() {
 
         try {
             // URI must be <= 200 characters (smart contract limit)
-            // Use image URI directly if provided, otherwise use a compact JSON with just social links
+            // Use image URI directly if provided, otherwise use a compact JSON with category + social links
             let uri = ""
             
             if (imageUri && imageUri.startsWith("http")) {
-                // If user provided an image URL, use it directly (must be < 200 chars)
-                uri = imageUri.slice(0, 200)
+                // If user provided an image URL, append category as query param
+                const separator = imageUri.includes('?') ? '&' : '?'
+                uri = `${imageUri}${separator}cat=${category}`.slice(0, 200)
             } else {
-                // Create minimal JSON with social links (keep it short!)
-                const socialData: Record<string, string> = {}
-                if (website) socialData.w = website
-                if (twitter) socialData.t = twitter
-                if (telegram) socialData.tg = telegram
+                // Create minimal JSON with category and social links (keep it short!)
+                const metaData: Record<string, string> = { c: category }
+                if (website) metaData.w = website
+                if (twitter) metaData.t = twitter
+                if (telegram) metaData.tg = telegram
                 
-                if (Object.keys(socialData).length > 0) {
-                    const json = JSON.stringify(socialData)
-                    const encoded = `data:,${encodeURIComponent(json)}`
-                    // Only use if under 200 chars
-                    uri = encoded.length <= 200 ? encoded : ""
-                }
+                const json = JSON.stringify(metaData)
+                const encoded = `data:,${encodeURIComponent(json)}`
+                // Only use if under 200 chars
+                uri = encoded.length <= 200 ? encoded : `data:,${encodeURIComponent(JSON.stringify({ c: category }))}`
             }
             
             console.log("URI length:", uri.length, "chars")
@@ -481,6 +481,30 @@ export default function LaunchPage() {
                                 <p className="text-xs text-[#5F6A6E] mt-1">
                                     Direct link to your token's logo image (PNG, JPG, SVG). If left empty, initials will be shown.
                                 </p>
+                            </div>
+
+                            {/* Category */}
+                            <div>
+                                <label className="block text-sm font-medium text-[#E9E1D8] mb-2">
+                                    Category *
+                                </label>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                    {TOKEN_CATEGORIES.map((cat) => (
+                                        <button
+                                            key={cat.id}
+                                            type="button"
+                                            onClick={() => setCategory(cat.id)}
+                                            className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                                                category === cat.id
+                                                    ? 'border-[#8C3A32] bg-[#8C3A32]/20 text-[#E9E1D8]'
+                                                    : 'border-[#2A3338] bg-[#0E1518] text-[#9FA6A3] hover:border-[#5F6A6E]'
+                                            }`}
+                                        >
+                                            <span>{cat.emoji}</span>
+                                            <span>{cat.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
 
                             {/* Social Links */}
