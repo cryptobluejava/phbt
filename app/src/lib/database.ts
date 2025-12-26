@@ -147,6 +147,7 @@ function getSupabase(): SupabaseClient | null {
             },
             global: {
                 headers: {
+                    'Accept': 'application/json',
                     'Content-Type': 'application/json',
                     'Prefer': 'return=representation'
                 }
