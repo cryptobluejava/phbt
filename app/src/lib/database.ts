@@ -173,15 +173,15 @@ export async function fetchUserProfile(wallet: string): Promise<UserProfile | nu
             .from('profiles')
             .select('*')
             .eq('wallet', wallet)
-            .single()
+            .limit(1)
         
         if (error) {
-            if (error.code === 'PGRST116') return null // Not found
             console.error('Supabase error:', error)
             return null
         }
         
-        return data as UserProfile
+        // Return first result or null if empty
+        return (data && data.length > 0) ? data[0] as UserProfile : null
     } catch (error) {
         console.error('Failed to fetch user profile:', error)
         return null
@@ -204,14 +204,13 @@ export async function updateUserProfile(wallet: string, updates: Partial<UserPro
                 onConflict: 'wallet'
             })
             .select()
-            .single()
         
         if (error) {
             console.error('Supabase error:', error)
             return null
         }
         
-        return data as UserProfile
+        return (data && data.length > 0) ? data[0] as UserProfile : null
     } catch (error) {
         console.error('Failed to update user profile:', error)
         return null
@@ -251,11 +250,11 @@ export async function fetchWatchlist(wallet: string): Promise<string[]> {
             .from('profiles')
             .select('watchlist')
             .eq('wallet', wallet)
-            .single()
+            .limit(1)
         
-        if (error || !data) return []
+        if (error || !data || data.length === 0) return []
         
-        return data.watchlist || []
+        return data[0].watchlist || []
     } catch (error) {
         console.error('Failed to fetch watchlist:', error)
         return []
