@@ -226,7 +226,7 @@ export default function PaperHandBitchIndex() {
             console.log("Pump.fun bonding curve:", bondingCurve.toBase58())
             
             // Fetch multiple pages of signatures for comprehensive data
-            let allSignatures: { signature: string; blockTime: number | null | undefined }[] = []
+            const allSignatures: Awaited<ReturnType<typeof connection.getSignaturesForAddress>> = []
             let lastSig: string | undefined = undefined
             
             for (let page = 0; page < 5; page++) { // Get up to 5 pages (1000 signatures)
@@ -235,7 +235,7 @@ export default function PaperHandBitchIndex() {
                     before: lastSig 
                 })
                 if (sigs.length === 0) break
-                allSignatures = allSignatures.concat(sigs)
+                allSignatures.push(...sigs)
                 lastSig = sigs[sigs.length - 1].signature
                 console.log(`Page ${page + 1}: fetched ${sigs.length} signatures, total: ${allSignatures.length}`)
                 await new Promise(r => setTimeout(r, 100))
