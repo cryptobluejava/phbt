@@ -5,15 +5,14 @@ import { TradePanel } from "@/components/trade-panel"
 import { PositionCard } from "@/components/position-card"
 import { TreasuryCard } from "@/components/treasury-card"
 import { TradesTable } from "@/components/trades-table"
-import { TradingChart } from "@/components/trading-chart"
+import { TokenChart } from "@/components/token-chart"
 import { WalletDistribution } from "@/components/wallet-distribution"
 import { CreatorFeesCard } from "@/components/creator-fees-card"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { PublicKey } from "@solana/web3.js"
 import Link from "next/link"
 import { useTokenPageData } from "@/hooks/use-token-page-data"
-import { Copy, Check, ExternalLink, Globe, Twitter, Send, Star, Users, Droplets } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Copy, Check, ExternalLink, Globe, Twitter, Send, Users, Droplets } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { getSolscanTokenUrl } from "@/lib/format"
 import { IS_MAINNET } from "@/lib/constants"
@@ -180,10 +179,9 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                         {/* Left Column - Chart & Trades */}
                         <div className="space-y-4">
                             {/* Chart */}
-                            <TradingChart
+                            <TokenChart
                                 trades={trades}
                                 totalSupply={metadata?.totalSupply || 0}
-                                tokenSymbol={displaySymbol}
                                 isLoading={isLoading}
                                 isRefreshing={isRefreshing}
                                 onRefresh={manualRefetch}
