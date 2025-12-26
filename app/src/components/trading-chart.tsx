@@ -232,7 +232,7 @@ export function TradingChart({ trades, totalSupply, tokenSymbol, isLoading, isRe
             volumeData.push({
                 time: time as Time,
                 value: volume,
-                color: trade.isBuy ? "#22c55e33" : "#ef444433",
+                color: trade.type === "buy" ? "#22c55e33" : "#ef444433",
             })
         }
 
@@ -242,9 +242,9 @@ export function TradingChart({ trades, totalSupply, tokenSymbol, isLoading, isRe
         // Add markers for buys/sells
         const markers = sortedTrades.map((trade, i) => ({
             time: priceData[i].time,
-            position: trade.isBuy ? 'belowBar' as const : 'aboveBar' as const,
-            color: trade.isBuy ? '#22c55e' : '#ef4444',
-            shape: trade.isBuy ? 'arrowUp' as const : 'arrowDown' as const,
+            position: trade.type === "buy" ? 'belowBar' as const : 'aboveBar' as const,
+            color: trade.type === "buy" ? '#22c55e' : '#ef4444',
+            shape: trade.type === "buy" ? 'arrowUp' as const : 'arrowDown' as const,
             size: 0.5,
         }))
         seriesRef.current.setMarkers(markers)
