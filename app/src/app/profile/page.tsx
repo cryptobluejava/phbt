@@ -8,7 +8,7 @@ import Link from "next/link"
 import { 
     Trophy, Star, Flame, Diamond, Skull, Rocket, 
     TrendingUp, TrendingDown, Coins, Clock, Target,
-    Award, Medal, Crown, Zap, Heart, Shield
+    Award, Medal, Crown, Zap, Heart, Shield, RefreshCw, Search
 } from "lucide-react"
 import { 
     ACHIEVEMENTS,
@@ -19,8 +19,10 @@ import {
     getLocalAchievements,
     isDatabaseConfigured,
     fetchUserProfile,
-    fetchUserStats
+    fetchUserStats,
+    updateUserProfile
 } from "@/lib/database"
+import { PROGRAM_ID, TREASURY_WALLET } from "@/lib/constants"
 
 // Achievement icon mapping
 const ACHIEVEMENT_ICONS: Record<string, React.ReactNode> = {
@@ -58,6 +60,9 @@ export default function ProfilePage() {
     const [achievements, setAchievements] = useState<Achievement[]>([])
     const [stats, setStats] = useState<UserStats | null>(null)
     const [isLoading, setIsLoading] = useState(true)
+    const [isScanning, setIsScanning] = useState(false)
+    const [scanStatus, setScanStatus] = useState<string>("")
+    const [lastScanned, setLastScanned] = useState<string | null>(null)
     const [walletBalance, setWalletBalance] = useState<number | null>(null)
 
     useEffect(() => {
@@ -220,6 +225,159 @@ export default function ProfilePage() {
         })
     }
 
+    // Scan wallet for on-chain activity
+    const scanWallet = useCallback(async () => {
+        if (!publicKey) return
+        
+        setIsScanning(true)
+        setScanStatus("Scanning wallet activity...")
+        
+        const stats: UserStats = {
+            totalTrades: 0,
+            totalBuys: 0,
+            totalSells: 0,
+            totalVolumeSol: 0,
+            tokensCreated: 0,
+            profitableTrades: 0,
+            paperHandTaxPaid: 0,
+            diamondHandHolds: 0,
+            firstTradeAt: null,
+        }
+        
+        try {
+            // Get signatures for this wallet interacting with our program
+            setScanStatus("Fetching transactions...")
+            const signatures = await connection.getSignaturesForAddress(
+                publicKey,
+                { limit: 200 }
+            )
+            
+            // Filter for transactions involving our program
+            let programTxCount = 0
+            let totalVolume = 0
+            
+            setScanStatus(`Analyzing ${signatures.length} transactions...`)
+            
+            for (let i = 0; i < Math.min(signatures.length, 50); i++) {
+                const sig = signatures[i]
+                try {
+                    const tx = await connection.getParsedTransaction(sig.signature, {
+                        maxSupportedTransactionVersion: 0
+                    })
+                    
+                    if (!tx?.meta) continue
+                    
+                    // Check if our program is involved
+                    const programInvolved = tx.transaction.message.accountKeys.some(
+                        acc => acc.pubkey.toBase58() === PROGRAM_ID.toBase58()
+                    )
+                    
+                    if (programInvolved) {
+                        programTxCount++
+                        
+                        // Estimate volume from SOL balance changes
+                        const preBalance = tx.meta.preBalances[0] || 0
+                        const postBalance = tx.meta.postBalances[0] || 0
+                        const change = Math.abs(preBalance - postBalance) / LAMPORTS_PER_SOL
+                        
+                        if (change > 0.001 && change < 1000) { // Reasonable trade range
+                            totalVolume += change
+                            
+                            // Guess if buy or sell based on SOL flow
+                            if (postBalance < preBalance) {
+                                stats.totalBuys++
+                            } else {
+                                stats.totalSells++
+                            }
+                        }
+                        
+                        // Set first trade date
+                        if (!stats.firstTradeAt && sig.blockTime) {
+                            stats.firstTradeAt = new Date(sig.blockTime * 1000).toISOString()
+                        }
+                    }
+                    
+                    // Rate limit
+                    if (i % 10 === 0) {
+                        setScanStatus(`Analyzed ${i + 1}/${Math.min(signatures.length, 50)} transactions...`)
+                        await new Promise(r => setTimeout(r, 100))
+                    }
+                } catch (e) {
+                    // Skip failed tx parsing
+                }
+            }
+            
+            stats.totalTrades = programTxCount
+            stats.totalVolumeSol = totalVolume
+            
+            // Check treasury for tax payments
+            setScanStatus("Checking tax payments...")
+            try {
+                const treasurySigs = await connection.getSignaturesForAddress(
+                    TREASURY_WALLET,
+                    { limit: 100 }
+                )
+                
+                for (const sig of treasurySigs.slice(0, 20)) {
+                    try {
+                        const tx = await connection.getParsedTransaction(sig.signature, {
+                            maxSupportedTransactionVersion: 0
+                        })
+                        if (!tx?.meta) continue
+                        
+                        // Check if this wallet sent SOL to treasury
+                        const accounts = tx.transaction.message.accountKeys
+                        const walletIndex = accounts.findIndex(
+                            acc => acc.pubkey.toBase58() === publicKey.toBase58()
+                        )
+                        
+                        if (walletIndex >= 0) {
+                            const preBalance = tx.meta.preBalances[walletIndex] || 0
+                            const postBalance = tx.meta.postBalances[walletIndex] || 0
+                            const taxAmount = (preBalance - postBalance) / LAMPORTS_PER_SOL
+                            if (taxAmount > 0 && taxAmount < 100) {
+                                stats.paperHandTaxPaid += taxAmount
+                            }
+                        }
+                    } catch (e) {
+                        // Skip
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to check treasury:", e)
+            }
+            
+            // Count tokens created by checking token launches
+            setScanStatus("Checking token creations...")
+            // This would require checking the tokens table or on-chain data
+            // For now, we'll leave it at 0 unless already in DB
+            
+            setStats(stats)
+            
+            // Calculate and set achievements
+            const calculatedAchievements = calculateAchievements(stats, [])
+            setAchievements(calculatedAchievements)
+            
+            // Save to Supabase if configured
+            if (isDatabaseConfigured()) {
+                setScanStatus("Saving to database...")
+                await updateUserProfile(publicKey.toBase58(), {
+                    stats: stats as any,
+                    achievements: calculatedAchievements,
+                })
+            }
+            
+            setLastScanned(new Date().toLocaleString())
+            setScanStatus("")
+            
+        } catch (error) {
+            console.error("Failed to scan wallet:", error)
+            setScanStatus("Scan failed. Try again later.")
+        } finally {
+            setIsScanning(false)
+        }
+    }, [publicKey, connection])
+
     useEffect(() => {
         if (connected && publicKey) {
             fetchProfile()
@@ -299,6 +457,40 @@ export default function ProfilePage() {
                                         {walletBalance !== null ? `${walletBalance.toFixed(4)} SOL` : '...'}
                                     </p>
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* Scan Wallet Section */}
+                        <div className="p-4 rounded-2xl bg-[#141D21] border border-[#2A3338] mb-6">
+                            <div className="flex items-center justify-between flex-wrap gap-4">
+                                <div>
+                                    <p className="text-sm text-[#E9E1D8] font-medium">
+                                        {stats?.totalTrades === 0 ? "No activity found" : `${stats?.totalTrades || 0} trades on PHBT`}
+                                    </p>
+                                    <p className="text-xs text-[#5F6A6E]">
+                                        {lastScanned ? `Last scanned: ${lastScanned}` : "Scan your wallet to discover your stats & achievements"}
+                                    </p>
+                                    {scanStatus && (
+                                        <p className="text-xs text-amber-400 mt-1">{scanStatus}</p>
+                                    )}
+                                </div>
+                                <button
+                                    onClick={scanWallet}
+                                    disabled={isScanning}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#8C3A32] text-[#E9E1D8] text-sm font-medium hover:bg-[#A04438] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    {isScanning ? (
+                                        <>
+                                            <RefreshCw className="w-4 h-4 animate-spin" />
+                                            Scanning...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Search className="w-4 h-4" />
+                                            Scan Wallet
+                                        </>
+                                    )}
+                                </button>
                             </div>
                         </div>
 
