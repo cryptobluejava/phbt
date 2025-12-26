@@ -1,11 +1,10 @@
 /**
- * Database API Integration
+ * Supabase Database Integration
  * Handles watchlist, achievements, and profile data
- * 
- * Set NEXT_PUBLIC_DATABASE_API_URL in your environment variables
  */
 
-import { DATABASE_API_URL, DATABASE_API_KEY } from "./constants"
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./constants"
 
 // Types
 export interface UserProfile {
@@ -13,8 +12,8 @@ export interface UserProfile {
     watchlist: string[]
     achievements: Achievement[]
     stats: UserStats
-    createdAt: string
-    updatedAt: string
+    created_at: string
+    updated_at: string
 }
 
 export interface Achievement {
@@ -81,29 +80,45 @@ export const ACHIEVEMENTS: Omit<Achievement, 'unlockedAt' | 'progress'>[] = [
     { id: 'og_trader', name: 'OG Trader', description: 'One of the first 100 traders', emoji: '🏆' },
 ]
 
-// Check if database API is configured
-export function isDatabaseConfigured(): boolean {
-    return !!DATABASE_API_URL && DATABASE_API_URL.length > 0
+// Supabase client singleton
+let supabase: SupabaseClient | null = null
+
+function getSupabase(): SupabaseClient | null {
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+        return null
+    }
+    
+    if (!supabase) {
+        supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    }
+    
+    return supabase
 }
 
-// Fetch user profile from database
+// Check if Supabase is configured
+export function isDatabaseConfigured(): boolean {
+    return !!SUPABASE_URL && !!SUPABASE_ANON_KEY && SUPABASE_URL.length > 0
+}
+
+// Fetch user profile from Supabase
 export async function fetchUserProfile(wallet: string): Promise<UserProfile | null> {
-    if (!isDatabaseConfigured()) return null
+    const client = getSupabase()
+    if (!client) return null
     
     try {
-        const response = await fetch(`${DATABASE_API_URL}/api/profile/${wallet}`, {
-            headers: {
-                'Content-Type': 'application/json',
-                ...(DATABASE_API_KEY ? { 'Authorization': `Bearer ${DATABASE_API_KEY}` } : {})
-            }
-        })
+        const { data, error } = await client
+            .from('profiles')
+            .select('*')
+            .eq('wallet', wallet)
+            .single()
         
-        if (!response.ok) {
-            if (response.status === 404) return null
-            throw new Error(`API error: ${response.status}`)
+        if (error) {
+            if (error.code === 'PGRST116') return null // Not found
+            console.error('Supabase error:', error)
+            return null
         }
         
-        return await response.json()
+        return data as UserProfile
     } catch (error) {
         console.error('Failed to fetch user profile:', error)
         return null
@@ -112,65 +127,71 @@ export async function fetchUserProfile(wallet: string): Promise<UserProfile | nu
 
 // Create or update user profile
 export async function updateUserProfile(wallet: string, updates: Partial<UserProfile>): Promise<UserProfile | null> {
-    if (!isDatabaseConfigured()) return null
+    const client = getSupabase()
+    if (!client) return null
     
     try {
-        const response = await fetch(`${DATABASE_API_URL}/api/profile/${wallet}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                ...(DATABASE_API_KEY ? { 'Authorization': `Bearer ${DATABASE_API_KEY}` } : {})
-            },
-            body: JSON.stringify(updates)
-        })
+        const { data, error } = await client
+            .from('profiles')
+            .upsert({
+                wallet,
+                ...updates,
+                updated_at: new Date().toISOString()
+            }, {
+                onConflict: 'wallet'
+            })
+            .select()
+            .single()
         
-        if (!response.ok) {
-            throw new Error(`API error: ${response.status}`)
+        if (error) {
+            console.error('Supabase error:', error)
+            return null
         }
         
-        return await response.json()
+        return data as UserProfile
     } catch (error) {
         console.error('Failed to update user profile:', error)
         return null
     }
 }
 
-// Sync watchlist to database
+// Sync watchlist to Supabase
 export async function syncWatchlist(wallet: string, watchlist: string[]): Promise<boolean> {
-    if (!isDatabaseConfigured()) return false
+    const client = getSupabase()
+    if (!client) return false
     
     try {
-        const response = await fetch(`${DATABASE_API_URL}/api/watchlist/${wallet}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                ...(DATABASE_API_KEY ? { 'Authorization': `Bearer ${DATABASE_API_KEY}` } : {})
-            },
-            body: JSON.stringify({ watchlist })
-        })
+        const { error } = await client
+            .from('profiles')
+            .upsert({
+                wallet,
+                watchlist,
+                updated_at: new Date().toISOString()
+            }, {
+                onConflict: 'wallet'
+            })
         
-        return response.ok
+        return !error
     } catch (error) {
         console.error('Failed to sync watchlist:', error)
         return false
     }
 }
 
-// Fetch watchlist from database
+// Fetch watchlist from Supabase
 export async function fetchWatchlist(wallet: string): Promise<string[]> {
-    if (!isDatabaseConfigured()) return []
+    const client = getSupabase()
+    if (!client) return []
     
     try {
-        const response = await fetch(`${DATABASE_API_URL}/api/watchlist/${wallet}`, {
-            headers: {
-                'Content-Type': 'application/json',
-                ...(DATABASE_API_KEY ? { 'Authorization': `Bearer ${DATABASE_API_KEY}` } : {})
-            }
-        })
+        const { data, error } = await client
+            .from('profiles')
+            .select('watchlist')
+            .eq('wallet', wallet)
+            .single()
         
-        if (!response.ok) return []
+        if (error || !data) return []
         
-        const data = await response.json()
         return data.watchlist || []
     } catch (error) {
         console.error('Failed to fetch watchlist:', error)
@@ -187,49 +208,82 @@ export async function recordTrade(
     isProfitable: boolean,
     taxPaid: number = 0
 ): Promise<void> {
-    if (!isDatabaseConfigured()) return
+    const client = getSupabase()
+    if (!client) return
     
     try {
-        await fetch(`${DATABASE_API_URL}/api/trades`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...(DATABASE_API_KEY ? { 'Authorization': `Bearer ${DATABASE_API_KEY}` } : {})
-            },
-            body: JSON.stringify({
+        await client
+            .from('trades')
+            .insert({
                 wallet,
-                tradeType,
-                tokenMint,
-                solAmount,
-                isProfitable,
-                taxPaid,
-                timestamp: new Date().toISOString()
+                trade_type: tradeType,
+                token_mint: tokenMint,
+                sol_amount: solAmount,
+                is_profitable: isProfitable,
+                tax_paid: taxPaid,
+                created_at: new Date().toISOString()
             })
-        })
     } catch (error) {
         console.error('Failed to record trade:', error)
     }
 }
 
 // Record token creation
-export async function recordTokenCreation(wallet: string, tokenMint: string): Promise<void> {
-    if (!isDatabaseConfigured()) return
+export async function recordTokenCreation(wallet: string, tokenMint: string, category?: string): Promise<void> {
+    const client = getSupabase()
+    if (!client) return
     
     try {
-        await fetch(`${DATABASE_API_URL}/api/tokens`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...(DATABASE_API_KEY ? { 'Authorization': `Bearer ${DATABASE_API_KEY}` } : {})
-            },
-            body: JSON.stringify({
+        await client
+            .from('tokens')
+            .insert({
                 wallet,
-                tokenMint,
-                timestamp: new Date().toISOString()
+                token_mint: tokenMint,
+                category,
+                created_at: new Date().toISOString()
             })
-        })
     } catch (error) {
         console.error('Failed to record token creation:', error)
+    }
+}
+
+// Get user stats from trades table
+export async function fetchUserStats(wallet: string): Promise<UserStats | null> {
+    const client = getSupabase()
+    if (!client) return null
+    
+    try {
+        // Get trades
+        const { data: trades, error: tradesError } = await client
+            .from('trades')
+            .select('*')
+            .eq('wallet', wallet)
+            .order('created_at', { ascending: true })
+        
+        // Get tokens created
+        const { data: tokens, error: tokensError } = await client
+            .from('tokens')
+            .select('*')
+            .eq('wallet', wallet)
+        
+        if (tradesError || tokensError) return null
+        
+        const stats: UserStats = {
+            totalTrades: trades?.length || 0,
+            totalBuys: trades?.filter(t => t.trade_type === 'buy').length || 0,
+            totalSells: trades?.filter(t => t.trade_type === 'sell').length || 0,
+            totalVolumeSol: trades?.reduce((sum, t) => sum + (t.sol_amount || 0), 0) || 0,
+            tokensCreated: tokens?.length || 0,
+            profitableTrades: trades?.filter(t => t.is_profitable).length || 0,
+            paperHandTaxPaid: trades?.reduce((sum, t) => sum + (t.tax_paid || 0), 0) || 0,
+            diamondHandHolds: 0, // Would need position tracking
+            firstTradeAt: trades?.[0]?.created_at || null,
+        }
+        
+        return stats
+    } catch (error) {
+        console.error('Failed to fetch user stats:', error)
+        return null
     }
 }
 
@@ -270,4 +324,3 @@ export function setLocalAchievements(achievements: Achievement[]): void {
     if (typeof window === 'undefined') return
     localStorage.setItem('phbt_achievements', JSON.stringify(achievements))
 }
-

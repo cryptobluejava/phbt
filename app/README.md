@@ -11,11 +11,17 @@ NEXT_PUBLIC_RPC_ENDPOINT=your-rpc-endpoint
 NEXT_PUBLIC_PROGRAM_ID=your-program-id
 NEXT_PUBLIC_TREASURY_WALLET=your-treasury-wallet
 
-# Optional - Database API for watchlist & achievements
+# Optional - Supabase for watchlist & achievements
 # Set these in Vercel for production (not in git)
-NEXT_PUBLIC_DATABASE_API_URL=https://your-api.com
-DATABASE_API_KEY=your-secret-api-key
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 ```
+
+## Supabase Setup
+
+1. Create a Supabase project at https://supabase.com
+2. Go to SQL Editor and run the contents of `supabase-schema.sql`
+3. Add your Supabase URL and anon key to environment variables
 
 ## Getting Started
 

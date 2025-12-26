@@ -118,12 +118,6 @@ export const TOKEN_CATEGORIES = [
 
 export type TokenCategory = typeof TOKEN_CATEGORIES[number]['id'];
 
-// ============================================================================
-// DATABASE API (for watchlist, achievements, etc.)
-// ============================================================================
-
-export const DATABASE_API_URL = process.env.NEXT_PUBLIC_DATABASE_API_URL || "";
-export const DATABASE_API_KEY = process.env.DATABASE_API_KEY || "";
 
 // ============================================================================
 // PHBI TOKENS (Paper Hand Bitch Index)
