@@ -7,7 +7,7 @@ import { useWallet, useConnection } from "@solana/wallet-adapter-react"
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
 import { LAMPORTS_PER_SOL } from "@solana/web3.js"
 import { REFRESH_INTERVALS } from "@/lib/constants"
-import { Wallet } from "lucide-react"
+import { Wallet, Skull } from "lucide-react"
 import logo from "@/app/logo.png"
 
 export function Header() {
@@ -75,7 +75,15 @@ export function Header() {
 
           <div className="flex items-center gap-6">
             {/* Navigation */}
-            <nav className="flex items-center gap-6">
+            <nav className="flex items-center gap-4">
+              <Link
+                href="/phbi"
+                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#141D21] border border-[#2A3338] text-[#E9E1D8] text-sm font-medium hover:border-[#8C3A32] transition-colors"
+                title="Paper Hand Bitch Index"
+              >
+                <Skull className="w-4 h-4 text-[#8C3A32]" />
+                <span className="hidden sm:inline">PHBI</span>
+              </Link>
               <Link
                 href="/launch"
                 className="px-4 py-2 rounded-xl bg-[#8C3A32] text-[#E9E1D8] text-sm font-medium hover:bg-[#A04438] transition-colors"
