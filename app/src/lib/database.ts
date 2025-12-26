@@ -89,7 +89,18 @@ function getSupabase(): SupabaseClient | null {
     }
     
     if (!supabase) {
-        supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+        supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: {
+                persistSession: false,
+                autoRefreshToken: false,
+            },
+            global: {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=representation'
+                }
+            }
+        })
     }
     
     return supabase

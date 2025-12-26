@@ -14,12 +14,10 @@ import {
     ACHIEVEMENTS, 
     Achievement, 
     UserStats,
-    getLocalAchievements, 
-    setLocalAchievements,
+    getLocalAchievements,
     isDatabaseConfigured,
     fetchUserProfile
 } from "@/lib/database"
-import { PROGRAM_ID, TREASURY_WALLET } from "@/lib/constants"
 
 // Achievement icon mapping
 const ACHIEVEMENT_ICONS: Record<string, React.ReactNode> = {
@@ -88,28 +86,37 @@ export default function ProfilePage() {
 
         setIsLoading(true)
         try {
-            // Try database first
+            // Try database first (fast)
             if (isDatabaseConfigured()) {
                 const profile = await fetchUserProfile(publicKey.toBase58())
                 if (profile) {
-                    setAchievements(profile.achievements)
-                    setStats(profile.stats)
+                    setAchievements(profile.achievements || [])
+                    setStats(profile.stats as UserStats || null)
                     setIsLoading(false)
                     return
                 }
             }
 
-            // Fall back to local storage + on-chain analysis
+            // Fall back to local storage (instant)
             const localAchievements = getLocalAchievements()
             
-            // Analyze on-chain activity to calculate stats
-            const walletStats = await analyzeWalletActivity(publicKey)
-            setStats(walletStats)
+            // Use default empty stats - achievements will be populated as user trades
+            const emptyStats: UserStats = {
+                totalTrades: 0,
+                totalBuys: 0,
+                totalSells: 0,
+                totalVolumeSol: 0,
+                tokensCreated: 0,
+                profitableTrades: 0,
+                paperHandTaxPaid: 0,
+                diamondHandHolds: 0,
+                firstTradeAt: null,
+            }
+            setStats(emptyStats)
 
-            // Calculate achievements based on stats
-            const calculatedAchievements = calculateAchievements(walletStats, localAchievements)
+            // Calculate achievements based on local data
+            const calculatedAchievements = calculateAchievements(emptyStats, localAchievements)
             setAchievements(calculatedAchievements)
-            setLocalAchievements(calculatedAchievements)
 
         } catch (error) {
             console.error("Failed to fetch profile:", error)
@@ -117,75 +124,6 @@ export default function ProfilePage() {
             setIsLoading(false)
         }
     }, [publicKey])
-
-    // Analyze wallet activity from on-chain data
-    const analyzeWalletActivity = async (wallet: PublicKey): Promise<UserStats> => {
-        const stats: UserStats = {
-            totalTrades: 0,
-            totalBuys: 0,
-            totalSells: 0,
-            totalVolumeSol: 0,
-            tokensCreated: 0,
-            profitableTrades: 0,
-            paperHandTaxPaid: 0,
-            diamondHandHolds: 0,
-            firstTradeAt: null,
-        }
-
-        try {
-            // Get signatures for this wallet interacting with our program
-            const signatures = await connection.getSignaturesForAddress(
-                wallet,
-                { limit: 100 }
-            )
-
-            // Simple heuristic: count transactions
-            stats.totalTrades = signatures.length
-
-            // Check treasury for tax payments from this wallet
-            const treasurySigs = await connection.getSignaturesForAddress(
-                TREASURY_WALLET,
-                { limit: 200 }
-            )
-
-            // Count tax payments (simplified)
-            for (const sig of treasurySigs) {
-                try {
-                    const tx = await connection.getParsedTransaction(sig.signature, {
-                        maxSupportedTransactionVersion: 0
-                    })
-                    if (!tx?.meta) continue
-
-                    // Check if this wallet is involved
-                    const accounts = tx.transaction.message.accountKeys
-                    const walletInvolved = accounts.some(
-                        acc => acc.pubkey.toBase58() === wallet.toBase58()
-                    )
-                    
-                    if (walletInvolved) {
-                        // This is a tax payment from this wallet
-                        const preBalance = tx.meta.preBalances[0] || 0
-                        const postBalance = tx.meta.postBalances[0] || 0
-                        const taxAmount = (preBalance - postBalance) / LAMPORTS_PER_SOL
-                        if (taxAmount > 0) {
-                            stats.paperHandTaxPaid += taxAmount
-                        }
-                    }
-                } catch (e) {
-                    // Skip failed tx parsing
-                }
-            }
-
-            if (signatures.length > 0) {
-                stats.firstTradeAt = new Date(signatures[signatures.length - 1].blockTime! * 1000).toISOString()
-            }
-
-        } catch (error) {
-            console.error("Failed to analyze wallet:", error)
-        }
-
-        return stats
-    }
 
     // Calculate achievements based on stats
     const calculateAchievements = (stats: UserStats, existing: Achievement[]): Achievement[] => {
