@@ -192,9 +192,11 @@ export function Header() {
       </div>
     )}
     
-    <header className="fixed top-0 left-0 right-0 z-50 border-b border-[#2A3338] bg-[#0E1518]">
-      <div className="max-w-6xl mx-auto px-6">
-        <div className="flex items-center justify-between h-16">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-[#0E1518]">
+      {/* Main Header */}
+      <div className="border-b border-[#2A3338]">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity">
             <Image
@@ -206,9 +208,6 @@ export function Header() {
             />
             <span className="font-medium text-[#E9E1D8] tracking-tight hidden sm:inline">
               Paper Hand Bitch Tax
-            </span>
-            <span className="font-medium text-[#E9E1D8] tracking-tight sm:hidden">
-              PHBT
             </span>
           </Link>
 
@@ -258,18 +257,6 @@ export function Header() {
 
             {/* Wallet Section */}
             <div className="flex items-center gap-2 sm:gap-3">
-              {/* Install App Button - shown when PWA install is available */}
-              {mounted && showInstallButton && (
-                <button
-                  onClick={handleInstallClick}
-                  className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs sm:text-sm font-medium bg-[#141D21] border border-[#8C3A32] text-[#E9E1D8] hover:bg-[#8C3A32]/20 transition-colors"
-                  title="Install App"
-                >
-                  <Download className="w-4 h-4 text-[#8C3A32]" />
-                  <span className="hidden sm:inline">Install</span>
-                </button>
-              )}
-              
               {mounted && connected && balance !== null && (
                 <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-[#1A2428] border border-[#2A3338]">
                   <Wallet className="w-4 h-4 text-[#5F6A6E]" />
@@ -296,9 +283,26 @@ export function Header() {
               )}
             </div>
           </div>
+          </div>
         </div>
       </div>
+      
+      {/* Install App Banner - shown when PWA install is available */}
+      {mounted && showInstallButton && (
+        <div className="border-b border-[#2A3338] bg-[#141D21]">
+          <div className="max-w-6xl mx-auto px-6">
+            <button
+              onClick={handleInstallClick}
+              className="w-full flex items-center justify-center gap-2 py-2 text-sm font-medium text-[#E9E1D8] hover:bg-[#8C3A32]/10 transition-colors"
+            >
+              <Download className="w-4 h-4 text-[#8C3A32]" />
+              <span>Install PHBT App</span>
+            </button>
+          </div>
+        </div>
+      )}
     </header>
     </>
   )
 }
+
