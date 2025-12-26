@@ -38,8 +38,22 @@ export interface UserStats {
     firstTradeAt: string | null
 }
 
+// Early adopter cutoff: January 2, 2026
+export const EARLY_ADOPTER_CUTOFF = new Date('2026-01-02T00:00:00Z')
+
 // Achievement definitions
-export const ACHIEVEMENTS: Omit<Achievement, 'unlockedAt' | 'progress'>[] = [
+export interface AchievementDef {
+    id: string
+    name: string
+    description: string
+    emoji: string
+    target?: number
+    secret?: boolean // Hidden until unlocked
+}
+
+export const ACHIEVEMENTS: AchievementDef[] = [
+    // === VISIBLE ACHIEVEMENTS ===
+    
     // Trading achievements
     { id: 'first_buy', name: 'First Blood', description: 'Make your first buy', emoji: '🩸', target: 1 },
     { id: 'first_sell', name: 'Paper or Diamond?', description: 'Make your first sell', emoji: '📄', target: 1 },
@@ -61,23 +75,60 @@ export const ACHIEVEMENTS: Omit<Achievement, 'unlockedAt' | 'progress'>[] = [
     
     // Diamond hands achievements
     { id: 'diamond_1', name: 'Diamond Hands', description: 'Hold through a 50% dip', emoji: '💎', target: 1 },
-    { id: 'diamond_5', name: 'Unshakeable', description: 'Hold through 5 major dips', emoji: '🗿', target: 5 },
     { id: 'profit_streak_3', name: 'Hot Streak', description: '3 profitable trades in a row', emoji: '🔥', target: 3 },
-    { id: 'profit_streak_10', name: 'On Fire', description: '10 profitable trades in a row', emoji: '🌋', target: 10 },
     
     // Paper hand achievements (shame badges)
     { id: 'paper_1', name: 'Paper Hands', description: 'Sell at a loss once', emoji: '🧻', target: 1 },
-    { id: 'paper_5', name: 'Tissue Paper', description: 'Sell at a loss 5 times', emoji: '😢', target: 5 },
     { id: 'paper_tax_1', name: 'Tax Contributor', description: 'Pay 1 SOL in paper hand tax', emoji: '💸', target: 1 },
-    { id: 'paper_tax_10', name: 'Treasury Filler', description: 'Pay 10 SOL in paper hand tax', emoji: '🏦', target: 10 },
     
     // Social/engagement achievements
     { id: 'watchlist_5', name: 'Watcher', description: 'Add 5 tokens to watchlist', emoji: '👀', target: 5 },
-    { id: 'watchlist_20', name: 'Market Observer', description: 'Add 20 tokens to watchlist', emoji: '🔭', target: 20 },
     
     // Special achievements
-    { id: 'early_adopter', name: 'Early Adopter', description: 'Joined in the first week', emoji: '🌅' },
+    { id: 'early_adopter', name: 'Early Adopter', description: 'Joined before Jan 2, 2026', emoji: '🌅' },
     { id: 'og_trader', name: 'OG Trader', description: 'One of the first 100 traders', emoji: '🏆' },
+    
+    // === SECRET ACHIEVEMENTS (hidden until unlocked) ===
+    
+    // Trading secrets
+    { id: 'trades_1000', name: 'Absolute Degen', description: 'Complete 1000 trades', emoji: '🎰', target: 1000, secret: true },
+    { id: 'trades_69', name: 'Nice', description: 'Complete exactly 69 trades', emoji: '😏', target: 69, secret: true },
+    { id: 'trades_420', name: 'Blazed Trader', description: 'Complete 420 trades', emoji: '🌿', target: 420, secret: true },
+    
+    // Volume secrets
+    { id: 'volume_69', name: 'Nice Volume', description: 'Trade exactly 69 SOL', emoji: '💋', target: 69, secret: true },
+    { id: 'volume_10000', name: 'Mega Whale', description: 'Trade 10,000 SOL total', emoji: '🌊', target: 10000, secret: true },
+    
+    // Streak secrets
+    { id: 'profit_streak_10', name: 'On Fire', description: '10 profitable trades in a row', emoji: '🌋', target: 10, secret: true },
+    { id: 'profit_streak_25', name: 'Unstoppable', description: '25 profitable trades in a row', emoji: '⚡', target: 25, secret: true },
+    { id: 'loss_streak_5', name: 'Down Bad', description: '5 losses in a row', emoji: '📉', target: 5, secret: true },
+    { id: 'loss_streak_10', name: 'Rekt', description: '10 losses in a row', emoji: '💀', target: 10, secret: true },
+    
+    // Paper hand secrets
+    { id: 'paper_10', name: 'Charmin Ultra', description: 'Sell at a loss 10 times', emoji: '🧴', target: 10, secret: true },
+    { id: 'paper_50', name: 'Kleenex King', description: 'Sell at a loss 50 times', emoji: '👑🧻', target: 50, secret: true },
+    { id: 'paper_tax_10', name: 'Treasury Filler', description: 'Pay 10 SOL in tax', emoji: '🏦', target: 10, secret: true },
+    { id: 'paper_tax_100', name: 'Treasury Whale', description: 'Pay 100 SOL in tax', emoji: '🐋💸', target: 100, secret: true },
+    
+    // Diamond secrets
+    { id: 'diamond_5', name: 'Unshakeable', description: 'Hold through 5 major dips', emoji: '🗿', target: 5, secret: true },
+    { id: 'diamond_10', name: 'Iron Will', description: 'Hold through 10 major dips', emoji: '⚔️', target: 10, secret: true },
+    { id: 'hold_30_days', name: 'HODLer', description: 'Hold a token for 30 days', emoji: '📅', target: 30, secret: true },
+    
+    // Creator secrets
+    { id: 'tokens_25', name: 'Token Tycoon', description: 'Launch 25 tokens', emoji: '🏭👑', target: 25, secret: true },
+    { id: 'meme_creator', name: 'Meme Lord', description: 'Launch 5 meme tokens', emoji: '🐸👑', target: 5, secret: true },
+    
+    // Watchlist secrets
+    { id: 'watchlist_50', name: 'Market Stalker', description: 'Add 50 tokens to watchlist', emoji: '🔍', target: 50, secret: true },
+    { id: 'watchlist_100', name: 'Obsessed', description: 'Add 100 tokens to watchlist', emoji: '👁️', target: 100, secret: true },
+    
+    // Special secrets
+    { id: 'night_owl', name: 'Night Owl', description: 'Trade between 2-5 AM', emoji: '🦉', secret: true },
+    { id: 'weekend_warrior', name: 'Weekend Warrior', description: 'Trade on Saturday and Sunday', emoji: '⚔️', secret: true },
+    { id: 'first_day', name: 'Day One', description: 'Traded on launch day', emoji: '1️⃣', secret: true },
+    { id: 'lucky_7', name: 'Lucky Seven', description: 'Make 7 profitable trades on the 7th', emoji: '🍀', target: 7, secret: true },
 ]
 
 // Supabase client singleton

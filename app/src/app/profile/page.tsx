@@ -11,12 +11,15 @@ import {
     Award, Medal, Crown, Zap, Heart, Shield
 } from "lucide-react"
 import { 
-    ACHIEVEMENTS, 
+    ACHIEVEMENTS,
+    EARLY_ADOPTER_CUTOFF,
     Achievement, 
+    AchievementDef,
     UserStats,
     getLocalAchievements,
     isDatabaseConfigured,
-    fetchUserProfile
+    fetchUserProfile,
+    fetchUserStats
 } from "@/lib/database"
 
 // Achievement icon mapping
@@ -85,41 +88,52 @@ export default function ProfilePage() {
         if (!publicKey) return
 
         setIsLoading(true)
+        
+        // Default empty stats
+        const emptyStats: UserStats = {
+            totalTrades: 0,
+            totalBuys: 0,
+            totalSells: 0,
+            totalVolumeSol: 0,
+            tokensCreated: 0,
+            profitableTrades: 0,
+            paperHandTaxPaid: 0,
+            diamondHandHolds: 0,
+            firstTradeAt: null,
+        }
+        
         try {
+            let userStats = emptyStats
+            let existingAchievements: Achievement[] = []
+            
             // Try database first (fast)
             if (isDatabaseConfigured()) {
-                const profile = await fetchUserProfile(publicKey.toBase58())
-                if (profile) {
-                    setAchievements(profile.achievements || [])
-                    setStats(profile.stats as UserStats || null)
-                    setIsLoading(false)
-                    return
+                // Fetch stats from trades table
+                const dbStats = await fetchUserStats(publicKey.toBase58())
+                if (dbStats) {
+                    userStats = dbStats
                 }
+                
+                // Fetch profile for achievements
+                const profile = await fetchUserProfile(publicKey.toBase58())
+                if (profile?.achievements) {
+                    existingAchievements = profile.achievements
+                }
+            } else {
+                // Fall back to local storage
+                existingAchievements = getLocalAchievements()
             }
 
-            // Fall back to local storage (instant)
-            const localAchievements = getLocalAchievements()
-            
-            // Use default empty stats - achievements will be populated as user trades
-            const emptyStats: UserStats = {
-                totalTrades: 0,
-                totalBuys: 0,
-                totalSells: 0,
-                totalVolumeSol: 0,
-                tokensCreated: 0,
-                profitableTrades: 0,
-                paperHandTaxPaid: 0,
-                diamondHandHolds: 0,
-                firstTradeAt: null,
-            }
-            setStats(emptyStats)
+            setStats(userStats)
 
-            // Calculate achievements based on local data
-            const calculatedAchievements = calculateAchievements(emptyStats, localAchievements)
+            // Calculate achievements based on stats
+            const calculatedAchievements = calculateAchievements(userStats, existingAchievements)
             setAchievements(calculatedAchievements)
 
         } catch (error) {
             console.error("Failed to fetch profile:", error)
+            setStats(emptyStats)
+            setAchievements(calculateAchievements(emptyStats, []))
         } finally {
             setIsLoading(false)
         }
@@ -128,50 +142,78 @@ export default function ProfilePage() {
     // Calculate achievements based on stats
     const calculateAchievements = (stats: UserStats, existing: Achievement[]): Achievement[] => {
         const now = new Date().toISOString()
+        const isEarlyAdopter = new Date() < EARLY_ADOPTER_CUTOFF
         
         return ACHIEVEMENTS.map(def => {
             const existingAchievement = existing.find(a => a.id === def.id)
             let unlockedAt = existingAchievement?.unlockedAt || null
             let progress = 0
+            const target = def.target || 1
 
             // Calculate progress based on achievement type
-            if (def.id === 'first_buy' && stats.totalBuys >= 1) {
-                unlockedAt = unlockedAt || now
-                progress = 1
-            } else if (def.id === 'first_sell' && stats.totalSells >= 1) {
-                unlockedAt = unlockedAt || now
-                progress = 1
+            if (def.id === 'early_adopter') {
+                // Early adopter - unlock if within cutoff period and has any activity
+                if (isEarlyAdopter && stats.totalTrades > 0) {
+                    unlockedAt = unlockedAt || now
+                    progress = 1
+                }
+            } else if (def.id === 'first_buy') {
+                progress = Math.min(stats.totalBuys, 1)
+                if (stats.totalBuys >= 1) unlockedAt = unlockedAt || now
+            } else if (def.id === 'first_sell') {
+                progress = Math.min(stats.totalSells, 1)
+                if (stats.totalSells >= 1) unlockedAt = unlockedAt || now
             } else if (def.id.startsWith('trades_')) {
-                const target = def.target || 1
                 progress = Math.min(stats.totalTrades, target)
-                if (stats.totalTrades >= target) {
+                // Special case for exact number achievements (69, 420)
+                if (def.id === 'trades_69') {
+                    if (stats.totalTrades === 69) unlockedAt = unlockedAt || now
+                } else if (def.id === 'trades_420') {
+                    if (stats.totalTrades === 420) unlockedAt = unlockedAt || now
+                } else if (stats.totalTrades >= target) {
                     unlockedAt = unlockedAt || now
                 }
             } else if (def.id.startsWith('volume_')) {
-                const target = def.target || 1
                 progress = Math.min(stats.totalVolumeSol, target)
-                if (stats.totalVolumeSol >= target) {
+                // Special case for exact volume (69)
+                if (def.id === 'volume_69') {
+                    if (Math.floor(stats.totalVolumeSol) === 69) unlockedAt = unlockedAt || now
+                } else if (stats.totalVolumeSol >= target) {
                     unlockedAt = unlockedAt || now
                 }
-            } else if (def.id === 'first_token' && stats.tokensCreated >= 1) {
-                unlockedAt = unlockedAt || now
-                progress = 1
+            } else if (def.id === 'first_token') {
+                progress = Math.min(stats.tokensCreated, 1)
+                if (stats.tokensCreated >= 1) unlockedAt = unlockedAt || now
             } else if (def.id.startsWith('tokens_')) {
-                const target = def.target || 1
                 progress = Math.min(stats.tokensCreated, target)
-                if (stats.tokensCreated >= target) {
-                    unlockedAt = unlockedAt || now
+                if (stats.tokensCreated >= target) unlockedAt = unlockedAt || now
+            } else if (def.id.startsWith('paper_tax_') || def.id.startsWith('paper_')) {
+                if (def.id.startsWith('paper_tax_')) {
+                    progress = Math.min(stats.paperHandTaxPaid, target)
+                    if (stats.paperHandTaxPaid >= target) unlockedAt = unlockedAt || now
+                } else {
+                    // paper_1, paper_10, paper_50 - based on loss sells
+                    const lossSells = stats.totalSells - stats.profitableTrades
+                    progress = Math.min(lossSells, target)
+                    if (lossSells >= target) unlockedAt = unlockedAt || now
                 }
-            } else if (def.id.startsWith('paper_tax_')) {
-                const target = def.target || 1
-                progress = Math.min(stats.paperHandTaxPaid, target)
-                if (stats.paperHandTaxPaid >= target) {
-                    unlockedAt = unlockedAt || now
-                }
+            } else if (def.id.startsWith('profit_streak_')) {
+                // Would need streak tracking - use existing unlock status
+                progress = existingAchievement?.progress || 0
+            } else if (def.id.startsWith('watchlist_')) {
+                // Watchlist achievements - would need watchlist count
+                progress = existingAchievement?.progress || 0
+            } else if (def.id.startsWith('diamond_')) {
+                progress = Math.min(stats.diamondHandHolds, target)
+                if (stats.diamondHandHolds >= target) unlockedAt = unlockedAt || now
             }
 
             return {
-                ...def,
+                id: def.id,
+                name: def.name,
+                description: def.description,
+                emoji: def.emoji,
+                target: def.target,
                 unlockedAt,
                 progress,
             }
@@ -184,8 +226,24 @@ export default function ProfilePage() {
         }
     }, [connected, publicKey, fetchProfile])
 
+    // Get achievement definition to check if secret
+    const getAchievementDef = (id: string): AchievementDef | undefined => 
+        ACHIEVEMENTS.find(a => a.id === id)
+    
+    // Filter visible achievements (non-secret OR unlocked secrets)
+    const visibleAchievements = achievements.filter(a => {
+        const def = getAchievementDef(a.id)
+        return !def?.secret || a.unlockedAt
+    })
+    
+    // Count unlocked (both visible and secret)
     const unlockedCount = achievements.filter(a => a.unlockedAt).length
-    const totalCount = achievements.length
+    const visibleTotal = ACHIEVEMENTS.filter(a => !a.secret).length
+    const secretsUnlocked = achievements.filter(a => {
+        const def = getAchievementDef(a.id)
+        return def?.secret && a.unlockedAt
+    }).length
+    const totalSecrets = ACHIEVEMENTS.filter(a => a.secret).length
 
     return (
         <div className="min-h-screen bg-[#0E1518]">
@@ -272,13 +330,25 @@ export default function ProfilePage() {
 
                         {/* Achievements Section */}
                         <div className="p-6 rounded-2xl bg-[#141D21] border border-[#2A3338]">
-                            <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
                                 <div className="flex items-center gap-3">
                                     <Trophy className="w-6 h-6 text-amber-500" />
                                     <h2 className="text-xl font-medium text-[#E9E1D8]">Achievements</h2>
                                 </div>
-                                <div className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 text-sm font-medium">
-                                    {unlockedCount}/{totalCount} Unlocked
+                                <div className="flex items-center gap-2">
+                                    <div className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 text-sm font-medium">
+                                        {unlockedCount - secretsUnlocked}/{visibleTotal}
+                                    </div>
+                                    {secretsUnlocked > 0 && (
+                                        <div className="px-3 py-1 rounded-full bg-purple-500/20 text-purple-400 text-sm font-medium">
+                                            🔮 {secretsUnlocked} secret{secretsUnlocked > 1 ? 's' : ''}
+                                        </div>
+                                    )}
+                                    {totalSecrets - secretsUnlocked > 0 && (
+                                        <div className="px-3 py-1 rounded-full bg-[#2A3338] text-[#5F6A6E] text-sm">
+                                            +{totalSecrets - secretsUnlocked} hidden
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -288,8 +358,10 @@ export default function ProfilePage() {
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {achievements.map((achievement) => {
+                                    {visibleAchievements.map((achievement) => {
                                         const isUnlocked = !!achievement.unlockedAt
+                                        const def = getAchievementDef(achievement.id)
+                                        const isSecret = def?.secret
                                         const progress = achievement.progress || 0
                                         const target = achievement.target || 1
                                         const progressPercent = Math.min((progress / target) * 100, 100)
@@ -299,22 +371,35 @@ export default function ProfilePage() {
                                                 key={achievement.id}
                                                 className={`p-4 rounded-xl border transition-all ${
                                                     isUnlocked
-                                                        ? 'bg-gradient-to-br from-amber-500/10 to-amber-600/5 border-amber-500/30'
+                                                        ? isSecret 
+                                                            ? 'bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/30'
+                                                            : 'bg-gradient-to-br from-amber-500/10 to-amber-600/5 border-amber-500/30'
                                                         : 'bg-[#0E1518] border-[#2A3338] opacity-60'
                                                 }`}
                                             >
                                                 <div className="flex items-start gap-3">
                                                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${
-                                                        isUnlocked ? 'bg-amber-500/20' : 'bg-[#1A2428]'
+                                                        isUnlocked 
+                                                            ? isSecret ? 'bg-purple-500/20' : 'bg-amber-500/20' 
+                                                            : 'bg-[#1A2428]'
                                                     }`}>
                                                         {achievement.emoji}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
-                                                        <h3 className={`font-medium truncate ${
-                                                            isUnlocked ? 'text-amber-400' : 'text-[#9FA6A3]'
-                                                        }`}>
-                                                            {achievement.name}
-                                                        </h3>
+                                                        <div className="flex items-center gap-2">
+                                                            <h3 className={`font-medium truncate ${
+                                                                isUnlocked 
+                                                                    ? isSecret ? 'text-purple-400' : 'text-amber-400' 
+                                                                    : 'text-[#9FA6A3]'
+                                                            }`}>
+                                                                {achievement.name}
+                                                            </h3>
+                                                            {isSecret && isUnlocked && (
+                                                                <span className="text-xs px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400">
+                                                                    SECRET
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         <p className="text-xs text-[#5F6A6E] mt-0.5">
                                                             {achievement.description}
                                                         </p>
@@ -335,7 +420,7 @@ export default function ProfilePage() {
                                                         )}
                                                         
                                                         {isUnlocked && (
-                                                            <p className="text-xs text-amber-500/70 mt-1">
+                                                            <p className={`text-xs mt-1 ${isSecret ? 'text-purple-500/70' : 'text-amber-500/70'}`}>
                                                                 ✓ Unlocked
                                                             </p>
                                                         )}
