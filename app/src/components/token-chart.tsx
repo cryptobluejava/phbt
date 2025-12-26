@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { createChart, ColorType, IChartApi, ISeriesApi, AreaData, Time, AreaSeries } from "lightweight-charts"
+import { createChart, ColorType, IChartApi, ISeriesApi, Time, AreaSeries } from "lightweight-charts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { RefreshCw } from "lucide-react"
 import { Trade } from "@/hooks/use-token-page-data"
@@ -34,10 +34,10 @@ export function TokenChart({ trades, totalSupply, isLoading, isRefreshing, onRef
         return () => clearInterval(interval)
     }, [])
 
+    // Create chart
     useEffect(() => {
         if (!chartContainerRef.current) return
 
-        // Create chart
         const chart = createChart(chartContainerRef.current, {
             layout: {
                 background: { type: ColorType.Solid, color: "transparent" },
@@ -53,7 +53,7 @@ export function TokenChart({ trades, totalSupply, isLoading, isRefreshing, onRef
                 borderColor: "#2A3338",
                 scaleMargins: {
                     top: 0.1,
-                    bottom: 0, // Start at 0, never go negative
+                    bottom: 0.1,
                 },
             },
             timeScale: {
@@ -77,7 +77,6 @@ export function TokenChart({ trades, totalSupply, isLoading, isRefreshing, onRef
 
         chartRef.current = chart
 
-        // Add area series (v5 API uses addSeries with AreaSeries)
         const areaSeries = chart.addSeries(AreaSeries, {
             topColor: "rgba(140, 58, 50, 0.56)",
             bottomColor: "rgba(140, 58, 50, 0.04)",
@@ -86,7 +85,7 @@ export function TokenChart({ trades, totalSupply, isLoading, isRefreshing, onRef
             priceFormat: {
                 type: 'custom',
                 formatter: (price: number) => {
-                    if (price < 0) return '$0' // Never show negative
+                    if (price < 0) return '$0'
                     if (price >= 1_000_000_000) return `$${(price / 1_000_000_000).toFixed(1)}B`
                     if (price >= 1_000_000) return `$${(price / 1_000_000).toFixed(1)}M`
                     if (price >= 1_000) return `$${(price / 1_000).toFixed(1)}K`
@@ -111,7 +110,15 @@ export function TokenChart({ trades, totalSupply, isLoading, isRefreshing, onRef
 
         return () => {
             window.removeEventListener("resize", handleResize)
-            chart.remove()
+            if (chartRef.current) {
+                try {
+                    chartRef.current.remove()
+                } catch {
+                    // Already disposed
+                }
+                chartRef.current = null
+                seriesRef.current = null
+            }
         }
     }, [])
 
@@ -119,33 +126,43 @@ export function TokenChart({ trades, totalSupply, isLoading, isRefreshing, onRef
     useEffect(() => {
         if (!seriesRef.current || trades.length === 0 || totalSupply === 0 || solPrice === 0) return
 
-        // Convert trades to chart data showing market cap in USD
-        // Ensure all values are positive (no negative market caps)
-        const chartData: AreaData<Time>[] = [...trades]
-            .sort((a, b) => a.timestamp - b.timestamp)
-            .map((trade) => ({
-                time: trade.timestamp as Time,
-                // Market cap in USD = price per token (SOL) * total supply * SOL price
-                value: Math.max(0, trade.price * totalSupply * solPrice),
-            }))
-
-        seriesRef.current.setData(chartData)
-
-        // Update current market cap (latest trade)
-        if (chartData.length > 0) {
-            setCurrentMarketCap(chartData[chartData.length - 1].value)
+        // Sort trades by timestamp
+        const sortedTrades = [...trades].sort((a, b) => a.timestamp - b.timestamp)
+        
+        // Create chart data - ensure unique timestamps by adding small increments
+        const chartData: { time: Time; value: number }[] = []
+        let lastTime = 0
+        
+        for (const trade of sortedTrades) {
+            const marketCap = Math.max(0, trade.price * totalSupply * solPrice)
+            // Ensure unique timestamps by adding milliseconds if needed
+            let time = trade.timestamp
+            if (time <= lastTime) {
+                time = lastTime + 1
+            }
+            lastTime = time
+            
+            chartData.push({
+                time: time as Time,
+                value: marketCap,
+            })
         }
 
-        // Fit content
-        if (chartRef.current) {
-            chartRef.current.timeScale().fitContent()
+        if (chartData.length > 0) {
+            seriesRef.current.setData(chartData)
+            setCurrentMarketCap(chartData[chartData.length - 1].value)
+            
+            // Fit content
+            if (chartRef.current) {
+                chartRef.current.timeScale().fitContent()
+            }
         }
     }, [trades, totalSupply, solPrice])
 
     return (
         <Card>
             <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-3">
                     <div className="flex items-center gap-3">
                         <div className="w-1 h-8 bg-[#8C3A32]" />
                         <div>
@@ -157,10 +174,12 @@ export function TokenChart({ trades, totalSupply, isLoading, isRefreshing, onRef
                             </p>
                         </div>
                     </div>
+                    
+                    {/* Refresh */}
                     <button
                         onClick={onRefresh}
                         disabled={isRefreshing}
-                        className="p-2 rounded-lg hover:bg-[#1A2428] transition-colors disabled:opacity-50"
+                        className="p-2 rounded-lg bg-[#0E1518] border border-[#2A3338] hover:border-[#8C3A32] transition-colors disabled:opacity-50"
                     >
                         <RefreshCw className={`w-4 h-4 text-[#9FA6A3] ${isRefreshing ? "animate-spin" : ""}`} />
                     </button>

@@ -5,7 +5,7 @@ import { PublicKey } from "@solana/web3.js"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Copy, Check, ExternalLink, RefreshCw, Globe, Twitter, Send } from "lucide-react"
+import { Copy, Check, ExternalLink, RefreshCw, Globe, Twitter, Send, Share2 } from "lucide-react"
 import { TokenMetadata } from "@/hooks/use-token-page-data"
 import { getSolscanTokenUrl } from "@/lib/format"
 import { IS_MAINNET } from "@/lib/constants"
@@ -159,6 +159,42 @@ export function TokenCard({ mint, metadata, isLoading }: TokenCardProps) {
           <div className="p-3 rounded-lg bg-[#0E1518] border border-[#2A3338]">
             <span className="text-xs text-[#5F6A6E] block mb-1">Decimals</span>
             <span className="text-sm text-[#E9E1D8] text-value md:text-base">{metadata?.decimals ?? "--"}</span>
+          </div>
+        </div>
+
+        {/* Share Buttons */}
+        <div className="divider-line" />
+        <div>
+          <label className="text-label mb-2 block">Share Token</label>
+          <div className="flex items-center gap-2">
+            <a
+              href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Check out $${displaySymbol} on PHBT! 💀\n\nPaper Hand Tax protects diamond hands.\n\n`)}&url=${encodeURIComponent(`https://phbt.fun/token/${mint.toBase58()}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#1DA1F2]/10 border border-[#1DA1F2]/30 hover:bg-[#1DA1F2]/20 transition-colors"
+            >
+              <Twitter className="w-4 h-4 text-[#1DA1F2]" />
+              <span className="text-sm text-[#1DA1F2]">Tweet</span>
+            </a>
+            <a
+              href={`https://t.me/share/url?url=${encodeURIComponent(`https://phbt.fun/token/${mint.toBase58()}`)}&text=${encodeURIComponent(`Check out $${displaySymbol} on PHBT! 💀 Paper Hand Tax protects diamond hands.`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#0088cc]/10 border border-[#0088cc]/30 hover:bg-[#0088cc]/20 transition-colors"
+            >
+              <Send className="w-4 h-4 text-[#0088cc]" />
+              <span className="text-sm text-[#0088cc]">Telegram</span>
+            </a>
+            <button
+              onClick={async () => {
+                await navigator.clipboard.writeText(`https://phbt.fun/token/${mint.toBase58()}`)
+                alert('Link copied!')
+              }}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#0E1518] border border-[#2A3338] hover:border-[#8C3A32] transition-colors"
+            >
+              <Share2 className="w-4 h-4 text-[#9FA6A3]" />
+              <span className="text-sm text-[#9FA6A3]">Copy Link</span>
+            </button>
           </div>
         </div>
       </CardContent>

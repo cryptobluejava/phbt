@@ -7,7 +7,7 @@ import { useWallet, useConnection } from "@solana/wallet-adapter-react"
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
 import { LAMPORTS_PER_SOL } from "@solana/web3.js"
 import { REFRESH_INTERVALS } from "@/lib/constants"
-import { Wallet, Skull, HelpCircle, X } from "lucide-react"
+import { Wallet, Skull, HelpCircle, X, Download } from "lucide-react"
 import logo from "@/app/logo.png"
 
 export function Header() {
@@ -16,11 +16,43 @@ export function Header() {
   const [balance, setBalance] = useState<number | null>(null)
   const [mounted, setMounted] = useState(false)
   const [showHowItWorks, setShowHowItWorks] = useState(false)
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
+  const [showInstallButton, setShowInstallButton] = useState(false)
 
   // Fix hydration mismatch - only render wallet button after mount
   useEffect(() => {
     setMounted(true)
+    
+    // Listen for PWA install prompt
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault()
+      setDeferredPrompt(e)
+      setShowInstallButton(true)
+    }
+    
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+    
+    // Check if already installed
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setShowInstallButton(false)
+    }
+    
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+    }
   }, [])
+  
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return
+    
+    deferredPrompt.prompt()
+    const { outcome } = await deferredPrompt.userChoice
+    
+    if (outcome === 'accepted') {
+      setShowInstallButton(false)
+    }
+    setDeferredPrompt(null)
+  }
 
   useEffect(() => {
     if (connected && publicKey) {
@@ -164,48 +196,80 @@ export function Header() {
       <div className="max-w-6xl mx-auto px-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+          <Link href="/" className="flex items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity">
             <Image
               src={logo}
-              alt="Paper Hand Bitch Tax"
+              alt="PHBT"
               width={32}
               height={32}
               className="rounded-lg"
             />
-            <span className="font-medium text-[#E9E1D8] tracking-tight">
+            <span className="font-medium text-[#E9E1D8] tracking-tight hidden sm:inline">
               Paper Hand Bitch Tax
+            </span>
+            <span className="font-medium text-[#E9E1D8] tracking-tight sm:hidden">
+              PHBT
             </span>
           </Link>
 
           <div className="flex items-center gap-6">
             {/* Navigation */}
-            <nav className="flex items-center gap-4">
+            <nav className="flex items-center gap-1 sm:gap-4">
               <button
                 onClick={() => setShowHowItWorks(true)}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#141D21] border border-[#2A3338] text-[#E9E1D8] text-sm font-medium hover:border-[#8C3A32] transition-colors"
+                className="flex items-center gap-2 px-2 sm:px-3 py-2 rounded-xl text-sm font-medium transition-colors"
+                style={{ 
+                  backgroundColor: 'var(--surface)', 
+                  borderColor: 'var(--border)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--primary)'
+                }}
                 title="How It Works"
               >
-                <HelpCircle className="w-4 h-4 text-[#8C3A32]" />
+                <HelpCircle className="w-4 h-4" style={{ color: 'var(--accent)' }} />
                 <span className="hidden sm:inline">How It Works</span>
               </button>
               <Link
                 href="/phbi"
-                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#141D21] border border-[#2A3338] text-[#E9E1D8] text-sm font-medium hover:border-[#8C3A32] transition-colors"
+                className="flex items-center gap-2 px-2 sm:px-3 py-2 rounded-xl text-sm font-medium transition-colors"
+                style={{ 
+                  backgroundColor: 'var(--surface)', 
+                  borderColor: 'var(--border)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--primary)'
+                }}
                 title="Paper Hand Bitch Index"
               >
-                <Skull className="w-4 h-4 text-[#8C3A32]" />
+                <Skull className="w-4 h-4" style={{ color: 'var(--accent)' }} />
                 <span className="hidden sm:inline">PHBI</span>
               </Link>
               <Link
                 href="/launch"
-                className="px-4 py-2 rounded-xl bg-[#8C3A32] text-[#E9E1D8] text-sm font-medium hover:bg-[#A04438] transition-colors"
+                className="px-2.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors"
+                style={{ 
+                  backgroundColor: 'var(--accent)',
+                  color: '#E9E1D8'
+                }}
               >
-                Create Coin
+                <span className="hidden sm:inline">Create Coin</span>
+                <span className="sm:hidden">Create</span>
               </Link>
             </nav>
 
             {/* Wallet Section */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* Install App Button - shown when PWA install is available */}
+              {mounted && showInstallButton && (
+                <button
+                  onClick={handleInstallClick}
+                  className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs sm:text-sm font-medium bg-[#141D21] border border-[#8C3A32] text-[#E9E1D8] hover:bg-[#8C3A32]/20 transition-colors"
+                  title="Install App"
+                >
+                  <Download className="w-4 h-4 text-[#8C3A32]" />
+                  <span className="hidden sm:inline">Install</span>
+                </button>
+              )}
+              
               {mounted && connected && balance !== null && (
                 <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-[#1A2428] border border-[#2A3338]">
                   <Wallet className="w-4 h-4 text-[#5F6A6E]" />

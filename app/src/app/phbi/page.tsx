@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { useConnection } from "@solana/wallet-adapter-react"
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { RefreshCw, Skull, ExternalLink, Trophy, TrendingDown, Flame, AlertCircle } from "lucide-react"
+import { RefreshCw, Skull, ExternalLink, Trophy, TrendingDown, Flame, AlertCircle, Diamond, TrendingUp } from "lucide-react"
 import { TREASURY_WALLET, PROGRAM_ID } from "@/lib/constants"
 import { getPoolPDA } from "@/lib/pdas"
 import { getSolscanAccountUrl, getSolscanTxUrl } from "@/lib/format"
@@ -44,15 +44,25 @@ interface CachedData {
 }
 
 type Mode = "PUMP" | "PHBT"
+type ViewMode = "paper" | "diamond"
+
+interface DiamondHandStats {
+    address: string
+    totalProfit: number
+    profitCount: number
+}
 
 export default function PaperHandBitchIndex() {
     const { connection } = useConnection()
     const [mode, setMode] = useState<Mode>("PUMP")
+    const [viewMode, setViewMode] = useState<ViewMode>("paper")
     const [walletStats, setWalletStats] = useState<WalletStats[]>([])
+    const [diamondStats, setDiamondStats] = useState<DiamondHandStats[]>([])
     const [allSells, setAllSells] = useState<PaperHandSell[]>([])
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [totalTaxCollected, setTotalTaxCollected] = useState(0)
+    const [totalProfits, setTotalProfits] = useState(0)
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
     // Load cached data
@@ -387,15 +397,54 @@ export default function PaperHandBitchIndex() {
                 }
             }
             
-            console.log(`Processed ${processedCount} trades, ${walletTrades.size} unique wallets, ${walletMap.size} paper hands found`)
+            // Also calculate diamond hands (profitable sellers)
+            const diamondMap = new Map<string, DiamondHandStats>()
+            
+            for (const [address, trades] of walletTrades.entries()) {
+                if (trades.sells.length === 0) continue
+
+                const totalSolSpent = trades.buys.reduce((sum, b) => sum + b.sol, 0)
+                const totalTokensBought = trades.buys.reduce((sum, b) => sum + b.tokens, 0)
+                const avgBuyPrice = totalTokensBought > 0 ? totalSolSpent / totalTokensBought : 0
+
+                let totalProfit = 0
+                let profitCount = 0
+
+                for (const sell of trades.sells) {
+                    const sellPrice = sell.tokens > 0 ? sell.sol / sell.tokens : 0
+                    
+                    if (sellPrice > avgBuyPrice && avgBuyPrice > 0) {
+                        // Sold at profit! 💎
+                        const profit = (sellPrice - avgBuyPrice) * sell.tokens
+                        totalProfit += profit
+                        profitCount++
+                    }
+                }
+
+                if (profitCount > 0) {
+                    diamondMap.set(address, {
+                        address,
+                        totalProfit,
+                        profitCount
+                    })
+                }
+            }
+            
+            const diamondArray = Array.from(diamondMap.values())
+            diamondArray.sort((a, b) => b.totalProfit - a.totalProfit)
+            const totalProfitsCalc = diamondArray.reduce((sum, w) => sum + w.totalProfit, 0)
+            
+            console.log(`Processed ${processedCount} trades, ${walletTrades.size} unique wallets, ${walletMap.size} paper hands, ${diamondMap.size} diamond hands found`)
 
             const statsArray = Array.from(walletMap.values())
             statsArray.sort((a, b) => b.totalTaxPaid - a.totalTaxPaid)
             const total = statsArray.reduce((sum, w) => sum + w.totalTaxPaid, 0)
             
             setWalletStats(statsArray)
+            setDiamondStats(diamondArray)
             setAllSells(paperHandSells.sort((a, b) => b.timestamp - a.timestamp))
             setTotalTaxCollected(total)
+            setTotalProfits(totalProfitsCalc)
             setLastUpdated(new Date())
             
             // Save to cache
@@ -507,10 +556,38 @@ export default function PaperHandBitchIndex() {
                     {/* Mode description */}
                     <p className="text-center text-sm text-[#5F6A6E] mb-6">
                         {mode === "PUMP" 
-                            ? "Tracking paper hands on $PHBT (pump.fun)"
-                            : "Tracking paper hands on $stitches (PHBT platform)"
+                            ? "Tracking traders on $PHBT (pump.fun)"
+                            : "Tracking traders on $stitches (PHBT platform)"
                         }
                     </p>
+
+                    {/* View Mode Toggle - Paper vs Diamond */}
+                    <div className="flex justify-center mb-6">
+                        <div className="inline-flex bg-[#0E1518] border border-[#2A3338] rounded-xl p-1">
+                            <button
+                                onClick={() => setViewMode("paper")}
+                                className={`px-5 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${
+                                    viewMode === "paper"
+                                        ? "bg-[#8C3A32] text-[#E9E1D8]"
+                                        : "text-[#9FA6A3] hover:text-[#E9E1D8]"
+                                }`}
+                            >
+                                <Skull className="w-4 h-4" />
+                                Paper Hands
+                            </button>
+                            <button
+                                onClick={() => setViewMode("diamond")}
+                                className={`px-5 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${
+                                    viewMode === "diamond"
+                                        ? "bg-cyan-600 text-[#E9E1D8]"
+                                        : "text-[#9FA6A3] hover:text-[#E9E1D8]"
+                                }`}
+                            >
+                                <Diamond className="w-4 h-4" />
+                                Diamond Hands
+                            </button>
+                        </div>
+                    </div>
 
                     {/* Hunt button */}
                     <div className="flex justify-center gap-3 mb-4">
@@ -556,8 +633,8 @@ export default function PaperHandBitchIndex() {
                 </div>
             </div>
 
-            {/* Stats cards */}
-            {!isLoading && walletStats.length > 0 && (
+            {/* Stats cards - Paper Hands */}
+            {!isLoading && viewMode === "paper" && walletStats.length > 0 && (
                 <div className="max-w-4xl mx-auto px-6 pb-8">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                         <Card className="bg-gradient-to-br from-[#8C3A32]/20 to-[#141D21] border-[#8C3A32]/30">
@@ -586,8 +663,10 @@ export default function PaperHandBitchIndex() {
                     </div>
                 </div>
             )}
+            
 
-            {/* Leaderboard */}
+            {/* Paper Hands Leaderboard */}
+            {viewMode === "paper" && (
             <div className="max-w-4xl mx-auto px-6 pb-16">
                 <Card>
                     <CardHeader>
@@ -765,6 +844,37 @@ export default function PaperHandBitchIndex() {
                     </Link>
                 </div>
             </div>
+            )}
+            
+            {/* Diamond Hands - Coming Soon */}
+            {viewMode === "diamond" && (
+            <div className="max-w-4xl mx-auto px-6 pb-16">
+                <Card>
+                    <CardContent className="py-20">
+                        <div className="text-center">
+                            <Diamond className="w-20 h-20 text-cyan-400 mx-auto mb-6" />
+                            <h2 className="text-3xl font-bold text-[#E9E1D8] mb-3">Coming Soon</h2>
+                            <p className="text-[#9FA6A3] text-lg mb-2">
+                                Diamond Hands Leaderboard 💎🙌
+                            </p>
+                            <p className="text-[#5F6A6E] text-sm max-w-md mx-auto">
+                                Track the legends who sold for profit. Hall of Fame coming soon!
+                            </p>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Back link */}
+                <div className="mt-8 text-center">
+                    <Link 
+                        href="/"
+                        className="text-[#9FA6A3] hover:text-[#E9E1D8] transition-colors"
+                    >
+                        ← Back to Explore
+                    </Link>
+                </div>
+            </div>
+            )}
         </div>
     )
 }

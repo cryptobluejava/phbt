@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { WalletProvider } from "@/components/wallet-provider";
 import { Header } from "@/components/header";
+import { ThemeProvider } from "@/components/theme-provider";
 
 export const metadata: Metadata = {
   title: "Paper Hand Bitch Tax",
@@ -15,6 +16,21 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
   },
   manifest: "/site.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "PHBT",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  themeColor: "#0E1518",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
 };
 
 export default function RootLayout({
@@ -28,14 +44,19 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
-      <body className="min-h-screen bg-[#0E1518] antialiased" suppressHydrationWarning>
-        <WalletProvider>
-          <Header />
-          <main className="pt-16">
-            {children}
-          </main>
-        </WalletProvider>
+      <body className="min-h-screen antialiased" style={{ backgroundColor: 'var(--background)', color: 'var(--primary)' }} suppressHydrationWarning>
+        <ThemeProvider>
+          <WalletProvider>
+            <Header />
+            <main className="pt-16">
+              {children}
+            </main>
+          </WalletProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

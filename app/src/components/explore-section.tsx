@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { useConnection } from "@solana/wallet-adapter-react"
 import { PublicKey } from "@solana/web3.js"
 import { Card, CardContent } from "@/components/ui/card"
-import { RefreshCw, Rocket, ExternalLink } from "lucide-react"
+import { RefreshCw, Rocket, ExternalLink, Search, SlidersHorizontal, Star, StarOff } from "lucide-react"
 import { PROGRAM_ID, POOL_SEED_PREFIX, TOKEN_METADATA_PROGRAM_ID, REFRESH_INTERVALS, HIDDEN_TOKENS, HIDE_OLD_TOKENS, ALLOWED_TOKENS } from "@/lib/constants"
 import { formatLamportsToSol } from "@/lib/format"
 import Link from "next/link"
@@ -65,10 +65,64 @@ function parseMetadata(data: Buffer): { name: string; symbol: string; uri: strin
     }
 }
 
+type SortOption = 'liquidity' | 'newest' | 'name' | 'watchlist'
+
 export function ExploreSection() {
     const { connection } = useConnection()
     const [coins, setCoins] = useState<LaunchedCoin[]>([])
     const [isLoading, setIsLoading] = useState(true)
+    const [searchQuery, setSearchQuery] = useState("")
+    const [sortBy, setSortBy] = useState<SortOption>('liquidity')
+    const [watchlist, setWatchlist] = useState<string[]>([])
+    
+    // Load watchlist from localStorage on mount
+    useEffect(() => {
+        const saved = localStorage.getItem('phbt_watchlist')
+        if (saved) {
+            try {
+                setWatchlist(JSON.parse(saved))
+            } catch {}
+        }
+    }, [])
+    
+    // Toggle watchlist
+    const toggleWatchlist = (mint: string, e: React.MouseEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        setWatchlist(prev => {
+            const newList = prev.includes(mint) 
+                ? prev.filter(m => m !== mint)
+                : [...prev, mint]
+            localStorage.setItem('phbt_watchlist', JSON.stringify(newList))
+            return newList
+        })
+    }
+    
+    // Filter and sort coins
+    const filteredCoins = coins
+        .filter(coin => {
+            if (!searchQuery) return true
+            const query = searchQuery.toLowerCase()
+            return coin.name.toLowerCase().includes(query) || 
+                   coin.symbol.toLowerCase().includes(query) ||
+                   coin.mint.toBase58().toLowerCase().includes(query)
+        })
+        .sort((a, b) => {
+            switch (sortBy) {
+                case 'liquidity':
+                    return b.solReserve - a.solReserve
+                case 'newest':
+                    return 0 // Keep original order (newest first from RPC)
+                case 'name':
+                    return a.name.localeCompare(b.name)
+                case 'watchlist':
+                    const aWatched = watchlist.includes(a.mint.toBase58()) ? 1 : 0
+                    const bWatched = watchlist.includes(b.mint.toBase58()) ? 1 : 0
+                    return bWatched - aWatched
+                default:
+                    return 0
+            }
+        })
 
     const fetchLaunchedCoins = useCallback(async () => {
         setIsLoading(true)
@@ -249,6 +303,44 @@ export function ExploreSection() {
                     </Link>
                 </div>
             </div>
+            
+            {/* Search and Filters */}
+            <div className="flex flex-col sm:flex-row gap-3 mb-6">
+                {/* Search Input */}
+                <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5F6A6E]" />
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search by name, symbol, or address..."
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#141D21] border border-[#2A3338] text-[#E9E1D8] placeholder-[#5F6A6E] text-sm focus:outline-none focus:border-[#8C3A32] transition-colors"
+                    />
+                </div>
+                
+                {/* Sort Dropdown */}
+                <div className="flex items-center gap-2">
+                    <SlidersHorizontal className="w-4 h-4 text-[#5F6A6E]" />
+                    <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value as SortOption)}
+                        className="px-3 py-2.5 rounded-xl bg-[#141D21] border border-[#2A3338] text-[#E9E1D8] text-sm focus:outline-none focus:border-[#8C3A32] transition-colors cursor-pointer"
+                    >
+                        <option value="liquidity">💰 Liquidity</option>
+                        <option value="newest">🆕 Newest</option>
+                        <option value="name">🔤 A-Z</option>
+                        <option value="watchlist">⭐ Watchlist</option>
+                    </select>
+                </div>
+                
+                {/* Watchlist count */}
+                {watchlist.length > 0 && (
+                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-900/20 border border-amber-500/30 text-amber-400 text-sm">
+                        <Star className="w-4 h-4 fill-current" />
+                        <span>{watchlist.length}</span>
+                    </div>
+                )}
+            </div>
 
             {isLoading && coins.length === 0 ? (
                 <div className="flex items-center justify-center py-12">
@@ -270,9 +362,19 @@ export function ExploreSection() {
                         </Link>
                     </CardContent>
                 </Card>
+            ) : filteredCoins.length === 0 ? (
+                <Card>
+                    <CardContent className="py-12 text-center">
+                        <Search className="w-12 h-12 text-[#5F6A6E] mx-auto mb-4" />
+                        <p className="text-[#E9E1D8] font-medium mb-2">No tokens found</p>
+                        <p className="text-sm text-[#5F6A6E]">Try a different search term</p>
+                    </CardContent>
+                </Card>
             ) : (
                 <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 ${isLoading ? 'opacity-80' : ''}`}>
-                    {coins.map((coin) => (
+                    {filteredCoins.map((coin) => {
+                        const isWatched = watchlist.includes(coin.mint.toBase58())
+                        return (
                         <Link
                             key={coin.pool.toBase58()}
                             href={`/token/${coin.mint.toBase58()}`}
@@ -296,6 +398,18 @@ export function ExploreSection() {
                                     )}
                                     {/* Overlay gradient */}
                                     <div className="absolute inset-0 bg-gradient-to-t from-[#141D21] via-transparent to-transparent" />
+
+                                    {/* Watchlist star */}
+                                    <button
+                                        onClick={(e) => toggleWatchlist(coin.mint.toBase58(), e)}
+                                        className={`absolute top-3 left-3 p-1.5 rounded-lg backdrop-blur-sm border transition-colors ${
+                                            isWatched 
+                                                ? 'bg-amber-500/20 border-amber-500/50 text-amber-400' 
+                                                : 'bg-[#0E1518]/80 border-[#2A3338] text-[#5F6A6E] hover:text-amber-400'
+                                        }`}
+                                    >
+                                        {isWatched ? <Star className="w-4 h-4 fill-current" /> : <StarOff className="w-4 h-4" />}
+                                    </button>
 
                                     {/* Symbol badge */}
                                     <div className="absolute top-3 right-3 px-2 py-1 rounded-lg bg-[#0E1518]/80 backdrop-blur-sm border border-[#2A3338]">
@@ -332,7 +446,7 @@ export function ExploreSection() {
                                 </CardContent>
                             </Card>
                         </Link>
-                    ))}
+                    )})}
                 </div>
             )}
         </div>

@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
-:root {
-  /* Core color system - strictly enforced */
+:root, .dark {
+  /* Core color system - Dark Theme (default) */
   --background: #0E1518;
   --surface: #141D21;
   --primary: #E9E1D8;
@@ -9,6 +9,17 @@
   --border: #2A3338;
   --accent: #8C3A32;
   --muted: #5F6A6E;
+}
+
+.light {
+  /* Light Theme */
+  --background: #F8F6F3;
+  --surface: #FFFFFF;
+  --primary: #1A1E21;
+  --secondary: #5A6064;
+  --border: #E2DED8;
+  --accent: #8C3A32;
+  --muted: #8A8F92;
 }
 
 * {
