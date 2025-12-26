@@ -91,7 +91,7 @@ export function Header() {
                 Sell at a loss → <span className="text-[#8C3A32]">50% Paper-Hand Tax</span>
               </p>
               <p className="text-sm text-[#9FA6A3] mt-2">
-                The tax isn't burned — it strengthens the ecosystem.
+                The tax isn't burned it strengthens the ecosystem.
               </p>
             </div>
 
