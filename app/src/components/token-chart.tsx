@@ -4,29 +4,28 @@ import { useEffect, useRef, useState } from "react"
 import { createChart, ColorType, IChartApi, ISeriesApi, Time, AreaSeries } from "lightweight-charts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { RefreshCw } from "lucide-react"
-import { Trade, PoolData } from "@/hooks/use-token-page-data"
+import { Trade } from "@/hooks/use-token-page-data"
 import { getSolPrice, formatUSD } from "@/lib/sol-price"
-import { calculateMarketCapUsd } from "@/lib/market-cap"
 import { REFRESH_INTERVALS } from "@/lib/constants"
 
 interface TokenChartProps {
     trades: Trade[]
     totalSupply: number
-    pool: PoolData | null
     isLoading: boolean
     isRefreshing: boolean
     onRefresh: () => void
 }
 
-export function TokenChart({ trades, totalSupply, pool, isLoading, isRefreshing, onRefresh }: TokenChartProps) {
+export function TokenChart({ trades, totalSupply, isLoading, isRefreshing, onRefresh }: TokenChartProps) {
     const chartContainerRef = useRef<HTMLDivElement>(null)
     const chartRef = useRef<IChartApi | null>(null)
     const seriesRef = useRef<ISeriesApi<"Area"> | null>(null)
     const [solPrice, setSolPrice] = useState<number>(0)
     
-    // Calculate current market cap from pool reserves (consistent with homepage)
-    const currentMarketCap = pool && solPrice > 0
-        ? calculateMarketCapUsd(pool.solReserve, pool.tokenReserve, solPrice)
+    // Calculate current market cap from ACTUAL TRADE PRICE (in-platform price!)
+    const latestTradePrice = trades.length > 0 ? trades[0].price : 0
+    const currentMarketCap = latestTradePrice > 0 && totalSupply > 0 && solPrice > 0
+        ? latestTradePrice * totalSupply * solPrice
         : 0
 
     // Fetch SOL price on mount and periodically

@@ -16,7 +16,7 @@ import { Copy, Check, ExternalLink, Globe, Twitter, Send, Users, Droplets, Trend
 import { Badge } from "@/components/ui/badge"
 import { getSolscanTokenUrl } from "@/lib/format"
 import { IS_MAINNET } from "@/lib/constants"
-import { getCachedSolPrice, calculateMarketCapUsd, formatMarketCap } from "@/lib/market-cap"
+import { getCachedSolPrice, formatMarketCap } from "@/lib/market-cap"
 
 // Format large numbers
 function formatSupply(supply: number): string {
@@ -69,9 +69,11 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
 
     const { metadata, trades, holdings, pool, isLoading, isRefreshing, hasFetched, refetch } = useTokenPageData(mint)
     
-    // Calculate market cap from pool reserves (same formula as homepage for consistency)
-    const marketCapUsd = pool 
-        ? calculateMarketCapUsd(pool.solReserve, pool.tokenReserve, solPrice)
+    // Calculate market cap from ACTUAL TRADE PRICES (in-platform price!)
+    // This is the real price from executed trades on the platform
+    const latestTradePrice = trades.length > 0 ? trades[0].price : 0
+    const marketCapUsd = latestTradePrice > 0 && metadata?.totalSupply 
+        ? latestTradePrice * metadata.totalSupply * solPrice 
         : 0
     
     // Price change from trades (if available)
@@ -267,7 +269,6 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                                 <TokenChart
                                     trades={trades}
                                     totalSupply={metadata?.totalSupply || 0}
-                                    pool={pool}
                                     isLoading={isLoading}
                                     isRefreshing={isRefreshing}
                                     onRefresh={manualRefetch}
