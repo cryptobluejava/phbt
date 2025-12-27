@@ -149,8 +149,8 @@ export function TokenTicker() {
           symbol,
           image,
           solReserve: pool.reserveTwo,
-          // Simulate price change for visual interest (would need real historical data)
-          priceChange: Math.random() > 0.5 ? Math.random() * 15 : -Math.random() * 10
+          // Generate deterministic "random" based on mint address for consistent SSR
+          priceChange: ((parseInt(mintAddress.slice(0, 8), 36) % 250) - 100) / 10
         })
       }
 
@@ -161,7 +161,7 @@ export function TokenTicker() {
       const featuredToken: TickerToken = {
         ...FEATURED_PHBT,
         solReserve: 0, // Will show as featured, not by liquidity
-        priceChange: Math.random() * 20 + 5, // Always positive for featured
+        priceChange: 12.5, // Fixed positive value for featured token
       }
       
       setTokens([featuredToken, ...parsedTokens.slice(0, 19)])

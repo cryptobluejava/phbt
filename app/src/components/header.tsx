@@ -223,10 +223,10 @@ export function Header() {
                   border: '1px solid var(--border)',
                   color: 'var(--primary)'
                 }}
-                title="How It Works"
+                title="How"
               >
                 <HelpCircle className="w-4 h-4" style={{ color: 'var(--accent)' }} />
-                <span className="hidden sm:inline">How It Works</span>
+                <span className="hidden sm:inline">How</span>
               </button>
               <Link
                 href="/phbi"

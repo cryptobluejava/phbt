@@ -432,7 +432,7 @@ export function ExploreSection() {
                     </CardContent>
                 </Card>
             ) : (
-                <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 ${isLoading ? 'opacity-80' : ''}`}>
+                <div className={`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 ${isLoading ? 'opacity-80' : ''}`}>
                     {filteredCoins.map((coin) => {
                         const isWatched = watchlist.includes(coin.mint.toBase58())
                         return (
@@ -441,81 +441,70 @@ export function ExploreSection() {
                             href={`/token/${coin.mint.toBase58()}`}
                             className="group"
                         >
-                            <Card className="overflow-hidden hover:border-[#8C3A32]/50 transition-all hover:scale-[1.02] cursor-pointer">
-                                {/* Large Image Section - ~33% of card */}
-                                <div className="aspect-[4/3] relative bg-gradient-to-br from-[#1A2428] to-[#0E1518]">
+                            <div className="relative rounded-2xl overflow-hidden bg-gradient-to-b from-[#1A2428]/80 to-[#0E1518] border border-[#2A3338]/50 hover:border-[#8C3A32]/60 transition-all duration-300 hover:shadow-[0_0_30px_rgba(140,58,50,0.15)] hover:-translate-y-1">
+                                {/* Glow effect on hover */}
+                                <div className="absolute inset-0 bg-gradient-to-br from-[#8C3A32]/0 to-[#8C3A32]/0 group-hover:from-[#8C3A32]/5 group-hover:to-transparent transition-all duration-300 pointer-events-none" />
+                                
+                                {/* Image */}
+                                <div className="aspect-square relative overflow-hidden">
                                     {coin.image ? (
                                         <img
                                             src={coin.image}
                                             alt={coin.name}
-                                            className="w-full h-full object-cover"
+                                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                         />
                                     ) : (
-                                        <div className="w-full h-full flex items-center justify-center">
-                                            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#8C3A32] to-[#A04438] flex items-center justify-center text-3xl font-bold text-[#E9E1D8] shadow-lg">
-                                                {coin.symbol.slice(0, 2)}
-                                            </div>
+                                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#8C3A32]/20 to-[#0E1518]">
+                                            <span className="text-4xl font-bold text-[#8C3A32]/60">{coin.symbol.slice(0, 2)}</span>
                                         </div>
                                     )}
-                                    {/* Overlay gradient */}
-                                    <div className="absolute inset-0 bg-gradient-to-t from-[#141D21] via-transparent to-transparent" />
-
+                                    {/* Vignette overlay */}
+                                    <div className="absolute inset-0 bg-gradient-to-t from-[#0E1518] via-[#0E1518]/20 to-transparent" />
+                                    
                                     {/* Watchlist star */}
                                     <button
                                         onClick={(e) => toggleWatchlist(coin.mint.toBase58(), e)}
-                                        className={`absolute top-3 left-3 p-1.5 rounded-lg backdrop-blur-sm border transition-colors ${
+                                        className={`absolute top-2 left-2 p-1.5 rounded-full backdrop-blur-md border transition-all duration-200 ${
                                             isWatched 
-                                                ? 'bg-amber-500/20 border-amber-500/50 text-amber-400' 
-                                                : 'bg-[#0E1518]/80 border-[#2A3338] text-[#5F6A6E] hover:text-amber-400'
+                                                ? 'bg-amber-500/30 border-amber-400/50 text-amber-300 scale-110' 
+                                                : 'bg-black/30 border-white/10 text-white/50 hover:text-amber-300 hover:bg-amber-500/20'
                                         }`}
                                     >
-                                        {isWatched ? <Star className="w-4 h-4 fill-current" /> : <StarOff className="w-4 h-4" />}
+                                        <Star className={`w-3.5 h-3.5 ${isWatched ? 'fill-current' : ''}`} />
                                     </button>
 
-                                    {/* Symbol badge */}
-                                    <div className="absolute top-3 right-3 px-2 py-1 rounded-lg bg-[#0E1518]/80 backdrop-blur-sm border border-[#2A3338]">
-                                        <span className="text-xs font-medium text-[#E9E1D8]">${coin.symbol}</span>
+                                    {/* Symbol pill */}
+                                    <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10">
+                                        <span className="text-[10px] font-bold text-white tracking-wider">${coin.symbol}</span>
                                     </div>
                                     
                                     {/* Category badge */}
                                     {coin.category && (
                                         <div 
-                                            className="absolute bottom-3 left-3 px-2 py-1 rounded-lg backdrop-blur-sm text-xs font-medium text-white"
-                                            style={{ backgroundColor: TOKEN_CATEGORIES.find(c => c.id === coin.category)?.color || '#8C3A32' }}
+                                            className="absolute bottom-2 left-2 px-2 py-0.5 rounded-full backdrop-blur-md text-[10px] font-semibold text-white flex items-center gap-1"
+                                            style={{ backgroundColor: `${TOKEN_CATEGORIES.find(c => c.id === coin.category)?.color}cc` || '#8C3A32cc' }}
                                         >
-                                            {TOKEN_CATEGORIES.find(c => c.id === coin.category)?.emoji} {TOKEN_CATEGORIES.find(c => c.id === coin.category)?.label}
+                                            <span>{TOKEN_CATEGORIES.find(c => c.id === coin.category)?.emoji}</span>
+                                            <span className="hidden sm:inline">{TOKEN_CATEGORIES.find(c => c.id === coin.category)?.label}</span>
                                         </div>
                                     )}
                                 </div>
 
-                                {/* Info Section */}
-                                <CardContent className="p-4 space-y-3">
-                                    <div>
-                                        <h3 className="text-[#E9E1D8] font-medium truncate group-hover:text-[#8C3A32] transition-colors">
-                                            {coin.name}
-                                        </h3>
-                                        <p className="text-xs text-[#5F6A6E] truncate mt-0.5">
-                                            {coin.mint.toBase58().slice(0, 16)}...
-                                        </p>
-                                    </div>
-
-                                    <div className="flex justify-between items-center text-sm">
-                                        <div>
-                                            <p className="text-[#5F6A6E] text-xs">Liquidity</p>
-                                            <p className="text-[#E9E1D8] font-medium">{formatLamportsToSol(coin.solReserve)} SOL</p>
+                                {/* Info */}
+                                <div className="p-3 space-y-2">
+                                    <h3 className="text-sm font-semibold text-[#E9E1D8] truncate group-hover:text-white transition-colors">
+                                        {coin.name}
+                                    </h3>
+                                    
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-1.5">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                            <span className="text-xs text-emerald-400 font-medium">{formatLamportsToSol(coin.solReserve)} SOL</span>
                                         </div>
-                                        <div className="text-right">
-                                            <p className="text-[#5F6A6E] text-xs">Supply</p>
-                                            <p className="text-[#E9E1D8] font-medium">{(coin.tokenReserve / 1_000_000).toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-                                        </div>
+                                        <span className="text-[10px] text-[#5F6A6E] font-mono">{coin.mint.toBase58().slice(0, 6)}...</span>
                                     </div>
-
-                                    <button className="w-full py-2.5 rounded-lg bg-[#8C3A32] text-[#E9E1D8] text-sm font-medium group-hover:bg-[#A04438] transition-colors flex items-center justify-center gap-2">
-                                        Trade
-                                        <Rocket className="w-3.5 h-3.5" />
-                                    </button>
-                                </CardContent>
-                            </Card>
+                                </div>
+                            </div>
                         </Link>
                     )})}
                 </div>
