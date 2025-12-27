@@ -218,6 +218,16 @@ body {
   background: #3A4449;
 }
 
+/* Hide scrollbar completely */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 /* Gradient text */
 .gradient-text {
   background: linear-gradient(135deg, #8C3A32 0%, #D4574A 100%);

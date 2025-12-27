@@ -305,100 +305,114 @@ export function ExploreSection() {
 
     return (
         <div className="mb-12">
-            <div className="flex items-center justify-between mb-6">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-4">
-                    <div className="w-1 h-10 bg-[#8C3A32]" />
+                    <div className="relative">
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#8C3A32] to-[#6B2D28] flex items-center justify-center shadow-lg shadow-[#8C3A32]/20">
+                            <Rocket className="w-6 h-6 text-white" />
+                        </div>
+                        <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-[#0E1518] flex items-center justify-center">
+                            <span className="text-[8px] font-bold text-white">{filteredCoins.length}</span>
+                        </div>
+                    </div>
                     <div>
-                        <h2 className="text-2xl font-medium text-[#E9E1D8] tracking-tight">
-                            Explore Launched Coins
+                        <h2 className="text-2xl font-bold text-[#E9E1D8] tracking-tight">
+                            Explore Coins
                         </h2>
-                        <p className="text-sm text-[#9FA6A3] mt-1">
-                            Discover tokens created with Paper Hand Tax
+                        <p className="text-sm text-[#5F6A6E]">
+                            Tokens with Paper Hand Tax protection
                         </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                     <button
                         onClick={() => fetchLaunchedCoins()}
                         disabled={isLoading}
-                        className="flex items-center gap-2 px-3 py-2 rounded-xl border border-[#2A3338] text-[#9FA6A3] text-sm hover:bg-[#1A2428] transition-colors disabled:opacity-50"
+                        className="p-2.5 rounded-xl bg-[#141D21]/50 border border-[#2A3338]/50 text-[#5F6A6E] hover:text-[#E9E1D8] hover:border-[#5F6A6E] transition-all disabled:opacity-50"
                     >
                         <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                        Refresh
                     </button>
                     <Link
                         href="/launch"
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#8C3A32] text-[#E9E1D8] text-sm font-medium hover:bg-[#A04438] transition-colors"
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#8C3A32] to-[#A04438] text-white text-sm font-semibold hover:shadow-lg hover:shadow-[#8C3A32]/25 transition-all hover:-translate-y-0.5"
                     >
                         <Rocket className="w-4 h-4" />
-                        Create Coin
+                        <span>Launch</span>
                     </Link>
                 </div>
             </div>
             
-            {/* Category Filter */}
-            <div className="flex flex-wrap gap-2 mb-4">
-                <button
-                    onClick={() => setCategoryFilter('all')}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                        categoryFilter === 'all'
-                            ? 'bg-[#8C3A32] text-[#E9E1D8]'
-                            : 'bg-[#141D21] border border-[#2A3338] text-[#9FA6A3] hover:border-[#5F6A6E]'
-                    }`}
-                >
-                    All
-                </button>
-                {TOKEN_CATEGORIES.map((cat) => (
+            {/* Category Pills - Horizontal scroll */}
+            <div className="relative mb-6">
+                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none -mx-2 px-2">
                     <button
-                        key={cat.id}
-                        onClick={() => setCategoryFilter(cat.id)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                            categoryFilter === cat.id
-                                ? 'text-[#E9E1D8]'
-                                : 'bg-[#141D21] border border-[#2A3338] text-[#9FA6A3] hover:border-[#5F6A6E]'
+                        onClick={() => setCategoryFilter('all')}
+                        className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                            categoryFilter === 'all'
+                                ? 'bg-white text-[#0E1518] shadow-lg'
+                                : 'bg-[#1A2428]/80 text-[#9FA6A3] hover:bg-[#1A2428] hover:text-white border border-transparent hover:border-[#2A3338]'
                         }`}
-                        style={categoryFilter === cat.id ? { backgroundColor: cat.color } : {}}
                     >
-                        <span>{cat.emoji}</span>
-                        <span className="hidden sm:inline">{cat.label}</span>
+                        All Coins
                     </button>
-                ))}
+                    {TOKEN_CATEGORIES.map((cat) => (
+                        <button
+                            key={cat.id}
+                            onClick={() => setCategoryFilter(cat.id)}
+                            className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                                categoryFilter === cat.id
+                                    ? 'text-white shadow-lg'
+                                    : 'bg-[#1A2428]/80 text-[#9FA6A3] hover:bg-[#1A2428] hover:text-white border border-transparent hover:border-[#2A3338]'
+                            }`}
+                            style={categoryFilter === cat.id ? { 
+                                backgroundColor: cat.color,
+                                boxShadow: `0 4px 20px ${cat.color}40`
+                            } : {}}
+                        >
+                            <span className="text-base">{cat.emoji}</span>
+                            <span>{cat.label}</span>
+                        </button>
+                    ))}
+                </div>
+                {/* Fade edges */}
+                <div className="absolute right-0 top-0 bottom-2 w-8 bg-gradient-to-l from-[#0E1518] to-transparent pointer-events-none" />
             </div>
 
             {/* Search and Filters */}
             <div className="flex flex-col sm:flex-row gap-3 mb-6">
                 {/* Search Input */}
-                <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5F6A6E]" />
+                <div className="relative flex-1 group">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5F6A6E] group-focus-within:text-[#8C3A32] transition-colors" />
                     <input
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search by name, symbol, or address..."
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#141D21] border border-[#2A3338] text-[#E9E1D8] placeholder-[#5F6A6E] text-sm focus:outline-none focus:border-[#8C3A32] transition-colors"
+                        placeholder="Search tokens..."
+                        className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#141D21]/50 border border-[#2A3338]/50 text-[#E9E1D8] placeholder-[#5F6A6E] text-sm focus:outline-none focus:border-[#8C3A32]/50 focus:bg-[#141D21] transition-all"
                     />
                 </div>
                 
                 {/* Sort Dropdown */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-[#141D21]/50 border border-[#2A3338]/50">
                     <SlidersHorizontal className="w-4 h-4 text-[#5F6A6E]" />
                     <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value as SortOption)}
-                        className="px-3 py-2.5 rounded-xl bg-[#141D21] border border-[#2A3338] text-[#E9E1D8] text-sm focus:outline-none focus:border-[#8C3A32] transition-colors cursor-pointer"
+                        className="bg-transparent text-[#E9E1D8] text-sm focus:outline-none cursor-pointer"
                     >
-                        <option value="liquidity">💰 Liquidity</option>
-                        <option value="newest">🆕 Newest</option>
-                        <option value="name">🔤 A-Z</option>
-                        <option value="watchlist">⭐ Watchlist</option>
+                        <option value="liquidity" className="bg-[#141D21]">💰 Liquidity</option>
+                        <option value="newest" className="bg-[#141D21]">🆕 Newest</option>
+                        <option value="name" className="bg-[#141D21]">🔤 A-Z</option>
+                        <option value="watchlist" className="bg-[#141D21]">⭐ Watchlist</option>
                     </select>
                 </div>
                 
                 {/* Watchlist count */}
                 {watchlist.length > 0 && (
-                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-900/20 border border-amber-500/30 text-amber-400 text-sm">
+                    <div className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
                         <Star className="w-4 h-4 fill-current" />
-                        <span>{watchlist.length}</span>
+                        <span className="text-sm font-medium">{watchlist.length} saved</span>
                     </div>
                 )}
             </div>

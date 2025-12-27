@@ -315,22 +315,16 @@ export function Header() {
         </div>
       </div>
       
-      {/* Install App Banner - shown when PWA install is available */}
-      {mounted && showInstallButton && (
-        <div className="border-b border-[#2A3338] bg-[#141D21]">
-          <div className="max-w-6xl mx-auto px-6">
-            <button
-              onClick={handleInstallClick}
-              className="w-full flex items-center justify-center gap-2 py-2 text-sm font-medium text-[#E9E1D8] hover:bg-[#8C3A32]/10 transition-colors"
-            >
-              <Download className="w-4 h-4 text-[#8C3A32]" />
-              <span>Install PHBT App</span>
-            </button>
-          </div>
-        </div>
-      )}
     </header>
     </>
   )
+}
+
+// Export install prompt for use in footer
+export function useInstallPrompt() {
+  return {
+    // This hook is a placeholder - the actual implementation uses window events
+    // The footer will implement its own beforeinstallprompt listener
+  }
 }
 

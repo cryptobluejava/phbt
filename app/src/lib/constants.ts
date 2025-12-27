@@ -64,6 +64,7 @@ export const HIDDEN_TOKENS: string[] = [
     "Gp8EJA3s2Q4rfiWYRbWHP62WSi22qRuwtuiqZaLABBEk",
     "FZTtKRUxyKYmNG1wAdU4Gicn2Qsv61aZ3ftc34ALDUaZ",
     "EoF64Ndc85LYEtpoj4J8aaLvFhP9woF8M2nXv731xpzc",
+    "BtzJGjoNnUjVCUfBg2mV72p32WPaDtSqXNAXbo8JfkYn",
 ];
 
 // ============================================================================
