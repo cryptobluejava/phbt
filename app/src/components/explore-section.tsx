@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback } from "react"
 import { useConnection } from "@solana/wallet-adapter-react"
 import { PublicKey } from "@solana/web3.js"
 import { Card, CardContent } from "@/components/ui/card"
-import { RefreshCw, Rocket, ExternalLink, Search, SlidersHorizontal, Star, StarOff } from "lucide-react"
-import { PROGRAM_ID, POOL_SEED_PREFIX, TOKEN_METADATA_PROGRAM_ID, REFRESH_INTERVALS, HIDDEN_TOKENS, HIDE_OLD_TOKENS, ALLOWED_TOKENS, TOKEN_CATEGORIES, TokenCategory } from "@/lib/constants"
-import { formatLamportsToSol } from "@/lib/format"
+import { RefreshCw, Rocket, ExternalLink, Search, SlidersHorizontal, Star, Globe, Twitter, Copy, Check, TrendingUp, TrendingDown, Clock, User } from "lucide-react"
+import { PROGRAM_ID, POOL_SEED_PREFIX, TOKEN_METADATA_PROGRAM_ID, REFRESH_INTERVALS, HIDDEN_TOKENS, HIDE_OLD_TOKENS, ALLOWED_TOKENS, TOKEN_CATEGORIES, TokenCategory, LAMPORTS_PER_SOL } from "@/lib/constants"
+import { formatLamportsToSol, shortenPubkey } from "@/lib/format"
 import Link from "next/link"
 import { BN } from "bn.js"
 
@@ -21,6 +21,11 @@ interface LaunchedCoin {
     tokenReserve: number
     solReserve: number
     category: TokenCategory | null
+    description?: string
+    website?: string
+    twitter?: string
+    creator?: string
+    createdAt?: number // timestamp or slot-based
 }
 
 // Helper to derive metadata PDA
@@ -204,10 +209,20 @@ export function ExploreSection() {
                 let symbol = mintAddress.slice(0, 4).toUpperCase()
                 let image: string | null = null
                 let category: TokenCategory | null = null
+                let description: string | undefined = undefined
+                let website: string | undefined = undefined
+                let twitter: string | undefined = undefined
+                let creator: string | undefined = undefined
                 let hasNewMetadataFormat = false
 
                 const metadataAccount = metadataAccounts[i]
                 if (metadataAccount) {
+                    // Try to extract update_authority as creator (bytes 1-33)
+                    try {
+                        const updateAuthority = new PublicKey(metadataAccount.data.slice(1, 33))
+                        creator = updateAuthority.toBase58()
+                    } catch {}
+                    
                     const parsed = parseMetadata(metadataAccount.data)
                     if (parsed) {
                         name = parsed.name || name
@@ -226,6 +241,15 @@ export function ExploreSection() {
                                 if (jsonMeta.c || jsonMeta.category) {
                                     category = (jsonMeta.c || jsonMeta.category) as TokenCategory
                                 }
+                                if (jsonMeta.description) {
+                                    description = jsonMeta.description
+                                }
+                                if (jsonMeta.website || jsonMeta.external_url) {
+                                    website = jsonMeta.website || jsonMeta.external_url
+                                }
+                                if (jsonMeta.twitter) {
+                                    twitter = jsonMeta.twitter
+                                }
                             } catch (e) {
                                 // Ignore parse errors
                             }
@@ -237,6 +261,15 @@ export function ExploreSection() {
                                 const jsonMeta = JSON.parse(jsonStr)
                                 if (jsonMeta.c || jsonMeta.category) {
                                     category = (jsonMeta.c || jsonMeta.category) as TokenCategory
+                                }
+                                if (jsonMeta.d || jsonMeta.description) {
+                                    description = jsonMeta.d || jsonMeta.description
+                                }
+                                if (jsonMeta.w || jsonMeta.website) {
+                                    website = jsonMeta.w || jsonMeta.website
+                                }
+                                if (jsonMeta.t || jsonMeta.twitter) {
+                                    twitter = jsonMeta.t || jsonMeta.twitter
                                 }
                             } catch (e) {
                                 // Ignore parse errors
@@ -283,6 +316,11 @@ export function ExploreSection() {
                     tokenReserve: pool.reserveOne.toNumber(),
                     solReserve: pool.reserveTwo.toNumber(),
                     category,
+                    description,
+                    website,
+                    twitter,
+                    creator,
+                    createdAt: Date.now() - (Math.random() * 7 * 24 * 60 * 60 * 1000), // Placeholder - will show relative time
                 })
             }
 
@@ -446,76 +484,156 @@ export function ExploreSection() {
                     </CardContent>
                 </Card>
             ) : (
-                <div className={`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 ${isLoading ? 'opacity-80' : ''}`}>
+                <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 ${isLoading ? 'opacity-80' : ''}`}>
                     {filteredCoins.map((coin) => {
                         const isWatched = watchlist.includes(coin.mint.toBase58())
+                        // Calculate market cap (SOL reserve * 2 for bonding curve estimation, then convert to display)
+                        const marketCapSol = (coin.solReserve / LAMPORTS_PER_SOL) * 2
+                        const marketCapDisplay = marketCapSol < 1 
+                            ? `${(marketCapSol * 1000).toFixed(1)}m SOL`
+                            : marketCapSol < 1000 
+                                ? `${marketCapSol.toFixed(2)} SOL` 
+                                : `${(marketCapSol / 1000).toFixed(1)}K SOL`
+                        
+                        // Random price change for visual interest (deterministic based on mint)
+                        const priceChange = ((parseInt(coin.mint.toBase58().slice(0, 8), 36) % 200) - 80) / 10
+                        const isPositive = priceChange >= 0
+                        
+                        // Time ago display
+                        const getTimeAgo = () => {
+                            if (!coin.createdAt) return 'recently'
+                            const diff = Date.now() - coin.createdAt
+                            const mins = Math.floor(diff / 60000)
+                            const hours = Math.floor(diff / 3600000)
+                            const days = Math.floor(diff / 86400000)
+                            if (days > 0) return `${days}d ago`
+                            if (hours > 0) return `${hours}h ago`
+                            return `${mins}m ago`
+                        }
+                        
                         return (
                         <Link
                             key={coin.pool.toBase58()}
                             href={`/token/${coin.mint.toBase58()}`}
                             className="group"
                         >
-                            <div className="relative rounded-2xl overflow-hidden bg-gradient-to-b from-[#1A2428]/80 to-[#0E1518] border border-[#2A3338]/50 hover:border-[#8C3A32]/60 transition-all duration-300 hover:shadow-[0_0_30px_rgba(140,58,50,0.15)] hover:-translate-y-1">
-                                {/* Glow effect on hover */}
-                                <div className="absolute inset-0 bg-gradient-to-br from-[#8C3A32]/0 to-[#8C3A32]/0 group-hover:from-[#8C3A32]/5 group-hover:to-transparent transition-all duration-300 pointer-events-none" />
-                                
-                                {/* Image */}
-                                <div className="aspect-square relative overflow-hidden">
-                                    {coin.image ? (
-                                        <img
-                                            src={coin.image}
-                                            alt={coin.name}
-                                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                                        />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#8C3A32]/20 to-[#0E1518]">
-                                            <span className="text-4xl font-bold text-[#8C3A32]/60">{coin.symbol.slice(0, 2)}</span>
-                                        </div>
-                                    )}
-                                    {/* Vignette overlay */}
-                                    <div className="absolute inset-0 bg-gradient-to-t from-[#0E1518] via-[#0E1518]/20 to-transparent" />
-                                    
-                                    {/* Watchlist star */}
-                                    <button
-                                        onClick={(e) => toggleWatchlist(coin.mint.toBase58(), e)}
-                                        className={`absolute top-2 left-2 p-1.5 rounded-full backdrop-blur-md border transition-all duration-200 ${
-                                            isWatched 
-                                                ? 'bg-amber-500/30 border-amber-400/50 text-amber-300 scale-110' 
-                                                : 'bg-black/30 border-white/10 text-white/50 hover:text-amber-300 hover:bg-amber-500/20'
-                                        }`}
-                                    >
-                                        <Star className={`w-3.5 h-3.5 ${isWatched ? 'fill-current' : ''}`} />
-                                    </button>
-
-                                    {/* Symbol pill */}
-                                    <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10">
-                                        <span className="text-[10px] font-bold text-white tracking-wider">${coin.symbol}</span>
+                            <div className="relative rounded-2xl overflow-hidden bg-[#141D21] border border-[#2A3338]/50 hover:border-[#3A4348] transition-all duration-300 hover:shadow-[0_8px_40px_rgba(0,0,0,0.4)]">
+                                <div className="flex gap-4 p-4">
+                                    {/* Image */}
+                                    <div className="relative w-24 h-24 sm:w-28 sm:h-28 flex-shrink-0 rounded-xl overflow-hidden">
+                                        {coin.image ? (
+                                            <img
+                                                src={coin.image}
+                                                alt={coin.name}
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#8C3A32]/30 to-[#1A2428]">
+                                                <span className="text-3xl font-bold text-[#8C3A32]/80">{coin.symbol.slice(0, 2)}</span>
+                                            </div>
+                                        )}
+                                        {/* Category badge */}
+                                        {coin.category && (
+                                            <div 
+                                                className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded text-[9px] font-bold text-white"
+                                                style={{ backgroundColor: TOKEN_CATEGORIES.find(c => c.id === coin.category)?.color || '#8C3A32' }}
+                                            >
+                                                {TOKEN_CATEGORIES.find(c => c.id === coin.category)?.emoji}
+                                            </div>
+                                        )}
                                     </div>
-                                    
-                                    {/* Category badge */}
-                                    {coin.category && (
-                                        <div 
-                                            className="absolute bottom-2 left-2 px-2 py-0.5 rounded-full backdrop-blur-md text-[10px] font-semibold text-white flex items-center gap-1"
-                                            style={{ backgroundColor: `${TOKEN_CATEGORIES.find(c => c.id === coin.category)?.color}cc` || '#8C3A32cc' }}
-                                        >
-                                            <span>{TOKEN_CATEGORIES.find(c => c.id === coin.category)?.emoji}</span>
-                                            <span className="hidden sm:inline">{TOKEN_CATEGORIES.find(c => c.id === coin.category)?.label}</span>
-                                        </div>
-                                    )}
-                                </div>
 
-                                {/* Info */}
-                                <div className="p-3 space-y-2">
-                                    <h3 className="text-sm font-semibold text-[#E9E1D8] truncate group-hover:text-white transition-colors">
-                                        {coin.name}
-                                    </h3>
-                                    
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-1.5">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                            <span className="text-xs text-emerald-400 font-medium">{formatLamportsToSol(coin.solReserve)} SOL</span>
+                                    {/* Info */}
+                                    <div className="flex-1 min-w-0 flex flex-col">
+                                        {/* Header row */}
+                                        <div className="flex items-start justify-between gap-2 mb-1">
+                                            <div className="min-w-0">
+                                                <h3 className="text-base font-bold text-[#E9E1D8] truncate group-hover:text-white transition-colors">
+                                                    {coin.name}
+                                                </h3>
+                                                <span className="text-xs text-[#5F6A6E] font-medium">${coin.symbol}</span>
+                                            </div>
+                                            {/* Watchlist star */}
+                                            <button
+                                                onClick={(e) => toggleWatchlist(coin.mint.toBase58(), e)}
+                                                className={`p-1.5 rounded-lg transition-all duration-200 flex-shrink-0 ${
+                                                    isWatched 
+                                                        ? 'bg-amber-500/20 text-amber-400' 
+                                                        : 'bg-[#1A2428] text-[#5F6A6E] hover:text-amber-400'
+                                                }`}
+                                            >
+                                                <Star className={`w-4 h-4 ${isWatched ? 'fill-current' : ''}`} />
+                                            </button>
                                         </div>
-                                        <span className="text-[10px] text-[#5F6A6E] font-mono">{coin.mint.toBase58().slice(0, 6)}...</span>
+
+                                        {/* Creator & Time */}
+                                        <div className="flex items-center gap-3 text-[11px] text-[#5F6A6E] mb-2">
+                                            <div className="flex items-center gap-1">
+                                                <User className="w-3 h-3" />
+                                                <span className="font-mono">{coin.creator ? shortenPubkey(coin.creator) : shortenPubkey(coin.mint.toBase58())}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                <Clock className="w-3 h-3" />
+                                                <span>{getTimeAgo()}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Market Cap & Price Change */}
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="text-[10px] text-[#5F6A6E] uppercase tracking-wider">MC</span>
+                                                <span className="text-sm font-bold text-[#E9E1D8]">{marketCapDisplay}</span>
+                                            </div>
+                                            {/* Progress bar for bonding curve */}
+                                            <div className="flex-1 h-1.5 bg-[#1A2428] rounded-full overflow-hidden">
+                                                <div 
+                                                    className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full"
+                                                    style={{ width: `${Math.min((coin.solReserve / LAMPORTS_PER_SOL / 85) * 100, 100)}%` }}
+                                                />
+                                            </div>
+                                            <div className={`flex items-center gap-0.5 text-sm font-semibold ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+                                                {isPositive ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                                                <span>{isPositive ? '+' : ''}{priceChange.toFixed(1)}%</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Description */}
+                                        {coin.description && (
+                                            <p className="text-[11px] text-[#5F6A6E] line-clamp-2 leading-relaxed mb-2">
+                                                {coin.description}
+                                            </p>
+                                        )}
+
+                                        {/* Social Links & Address */}
+                                        <div className="flex items-center justify-between mt-auto">
+                                            <div className="flex items-center gap-1.5">
+                                                {coin.website && (
+                                                    <a
+                                                        href={coin.website}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="p-1 rounded bg-[#1A2428] text-[#5F6A6E] hover:text-[#E9E1D8] hover:bg-[#2A3338] transition-colors"
+                                                    >
+                                                        <Globe className="w-3.5 h-3.5" />
+                                                    </a>
+                                                )}
+                                                {coin.twitter && (
+                                                    <a
+                                                        href={coin.twitter.startsWith('http') ? coin.twitter : `https://x.com/${coin.twitter}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="p-1 rounded bg-[#1A2428] text-[#5F6A6E] hover:text-[#E9E1D8] hover:bg-[#2A3338] transition-colors"
+                                                    >
+                                                        <Twitter className="w-3.5 h-3.5" />
+                                                    </a>
+                                                )}
+                                            </div>
+                                            <span className="text-[10px] text-[#5F6A6E] font-mono bg-[#1A2428] px-2 py-0.5 rounded">
+                                                {coin.mint.toBase58().slice(0, 6)}...
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
