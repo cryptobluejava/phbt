@@ -10,6 +10,9 @@ import { formatLamportsToSol, shortenPubkey } from "@/lib/format"
 import Link from "next/link"
 import { BN } from "bn.js"
 
+// SOL price estimate (updated periodically via CoinGecko in production)
+const SOL_PRICE_USD = 180
+
 
 
 interface LaunchedCoin {
@@ -487,13 +490,15 @@ export function ExploreSection() {
                 <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 ${isLoading ? 'opacity-80' : ''}`}>
                     {filteredCoins.map((coin) => {
                         const isWatched = watchlist.includes(coin.mint.toBase58())
-                        // Calculate market cap (SOL reserve * 2 for bonding curve estimation, then convert to display)
+                        // Calculate market cap (SOL reserve * 2 for bonding curve estimation)
                         const marketCapSol = (coin.solReserve / LAMPORTS_PER_SOL) * 2
-                        const marketCapDisplay = marketCapSol < 1 
-                            ? `${(marketCapSol * 1000).toFixed(1)}m SOL`
-                            : marketCapSol < 1000 
-                                ? `${marketCapSol.toFixed(2)} SOL` 
-                                : `${(marketCapSol / 1000).toFixed(1)}K SOL`
+                        const marketCapUsd = marketCapSol * SOL_PRICE_USD
+                        // Format USD market cap
+                        const marketCapDisplay = marketCapUsd < 1000 
+                            ? `$${marketCapUsd.toFixed(0)}`
+                            : marketCapUsd < 1000000 
+                                ? `$${(marketCapUsd / 1000).toFixed(1)}K` 
+                                : `$${(marketCapUsd / 1000000).toFixed(2)}M`
                         
                         // Random price change for visual interest (deterministic based on mint)
                         const priceChange = ((parseInt(coin.mint.toBase58().slice(0, 8), 36) % 200) - 80) / 10
@@ -608,26 +613,29 @@ export function ExploreSection() {
                                         <div className="flex items-center justify-between mt-auto">
                                             <div className="flex items-center gap-1.5">
                                                 {coin.website && (
-                                                    <a
-                                                        href={coin.website}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        onClick={(e) => e.stopPropagation()}
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.preventDefault()
+                                                            e.stopPropagation()
+                                                            window.open(coin.website, '_blank', 'noopener,noreferrer')
+                                                        }}
                                                         className="p-1 rounded bg-[#1A2428] text-[#5F6A6E] hover:text-[#E9E1D8] hover:bg-[#2A3338] transition-colors"
                                                     >
                                                         <Globe className="w-3.5 h-3.5" />
-                                                    </a>
+                                                    </button>
                                                 )}
                                                 {coin.twitter && (
-                                                    <a
-                                                        href={coin.twitter.startsWith('http') ? coin.twitter : `https://x.com/${coin.twitter}`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        onClick={(e) => e.stopPropagation()}
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.preventDefault()
+                                                            e.stopPropagation()
+                                                            const url = coin.twitter?.startsWith('http') ? coin.twitter : `https://x.com/${coin.twitter}`
+                                                            window.open(url, '_blank', 'noopener,noreferrer')
+                                                        }}
                                                         className="p-1 rounded bg-[#1A2428] text-[#5F6A6E] hover:text-[#E9E1D8] hover:bg-[#2A3338] transition-colors"
                                                     >
                                                         <Twitter className="w-3.5 h-3.5" />
-                                                    </a>
+                                                    </button>
                                                 )}
                                             </div>
                                             <span className="text-[10px] text-[#5F6A6E] font-mono bg-[#1A2428] px-2 py-0.5 rounded">

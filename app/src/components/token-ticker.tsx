@@ -3,11 +3,14 @@
 import { useState, useEffect, useCallback } from "react"
 import { useConnection } from "@solana/wallet-adapter-react"
 import { PublicKey } from "@solana/web3.js"
-import { PROGRAM_ID, TOKEN_METADATA_PROGRAM_ID, HIDDEN_TOKENS, HIDE_OLD_TOKENS, ALLOWED_TOKENS } from "@/lib/constants"
+import { PROGRAM_ID, TOKEN_METADATA_PROGRAM_ID, HIDDEN_TOKENS, HIDE_OLD_TOKENS, ALLOWED_TOKENS, LAMPORTS_PER_SOL } from "@/lib/constants"
 import { formatLamportsToSol } from "@/lib/format"
 import Link from "next/link"
 import { BN } from "bn.js"
 import { TrendingUp, TrendingDown, Flame, Crown } from "lucide-react"
+
+// SOL price estimate
+const SOL_PRICE_USD = 180
 
 // Featured PHBT token on pump.fun
 const FEATURED_PHBT = {
@@ -202,8 +205,17 @@ export function TokenTicker() {
         {/* Scrolling ticker */}
         <div className="flex-1 overflow-hidden">
           <div className="animate-ticker flex items-center gap-6 py-2 px-4">
-            {displayTokens.map((token, i) => (
-              token.isFeatured ? (
+            {displayTokens.map((token, i) => {
+              // Calculate market cap in USD for non-featured tokens
+              const marketCapSol = (token.solReserve / LAMPORTS_PER_SOL) * 2
+              const marketCapUsd = marketCapSol * SOL_PRICE_USD
+              const mcDisplay = marketCapUsd < 1000 
+                ? `$${marketCapUsd.toFixed(0)}`
+                : marketCapUsd < 1000000 
+                    ? `$${(marketCapUsd / 1000).toFixed(1)}K` 
+                    : `$${(marketCapUsd / 1000000).toFixed(2)}M`
+              
+              return token.isFeatured ? (
                 // Featured PHBT token with special styling
                 <a
                   key={`${token.mint}-${i}`}
@@ -266,8 +278,8 @@ export function TokenTicker() {
                     <span className="text-sm font-medium text-[#E9E1D8] group-hover:text-[#8C3A32] transition-colors">
                       ${token.symbol}
                     </span>
-                    <span className="text-xs text-[#5F6A6E]">
-                      {formatLamportsToSol(token.solReserve)} SOL
+                    <span className="text-xs text-[#5F6A6E] font-medium">
+                      MC {mcDisplay}
                     </span>
                     {token.priceChange !== undefined && (
                       <span className={`text-xs font-medium flex items-center gap-0.5 ${
@@ -284,7 +296,7 @@ export function TokenTicker() {
                   </div>
                 </Link>
               )
-            ))}
+            })}
           </div>
         </div>
       </div>
