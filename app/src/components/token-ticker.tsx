@@ -27,6 +27,8 @@ interface TickerToken {
   image: string | null
   solReserve: number
   tokenReserve: number
+  lastTradePrice: number // In-platform price from last trade
+  poolPubkey?: string // Pool address for fetching trades
   priceChange?: number
   url?: string
   isFeatured?: boolean
@@ -94,12 +96,13 @@ export function TokenTicker() {
 
       // Parse pool data
       const poolsWithMints: Array<{
+        pubkey: PublicKey
         tokenOne: PublicKey
         reserveOne: number
         reserveTwo: number
       }> = []
 
-      for (const { account } of allAccounts) {
+      for (const { pubkey, account } of allAccounts) {
         try {
           const data = account.data.slice(8)
           const tokenOne = new PublicKey(data.slice(0, 32))
@@ -109,7 +112,7 @@ export function TokenTicker() {
           if (tokenOne.toBase58() === "11111111111111111111111111111111") continue
           if (HIDDEN_TOKENS.includes(tokenOne.toBase58())) continue
 
-          poolsWithMints.push({ tokenOne, reserveOne, reserveTwo })
+          poolsWithMints.push({ pubkey, tokenOne, reserveOne, reserveTwo })
         } catch {
           // Skip invalid pools
         }
@@ -166,6 +169,8 @@ export function TokenTicker() {
           image,
           solReserve: pool.reserveTwo,
           tokenReserve: pool.reserveOne,
+          lastTradePrice: 0, // Will be fetched below
+          poolPubkey: pool.pubkey.toBase58(),
           // Generate deterministic "random" based on mint address for consistent SSR
           priceChange: ((parseInt(mintAddress.slice(0, 8), 36) % 250) - 100) / 10
         })
@@ -173,16 +178,58 @@ export function TokenTicker() {
 
       // Sort by liquidity and take top tokens
       parsedTokens.sort((a, b) => b.solReserve - a.solReserve)
+      const topTokens = parsedTokens.slice(0, 19)
+      
+      // Fetch last trade price for top tokens (in-platform price!)
+      for (let i = 0; i < topTokens.length; i++) {
+        try {
+          if (!topTokens[i].poolPubkey) continue
+          await new Promise(r => setTimeout(r, 200))
+          const poolPub = new PublicKey(topTokens[i].poolPubkey!)
+          const signatures = await connection.getSignaturesForAddress(poolPub, { limit: 1 })
+          
+          if (signatures.length > 0) {
+            const tx = await connection.getParsedTransaction(signatures[0].signature, {
+              maxSupportedTransactionVersion: 0
+            })
+            
+            if (tx?.meta) {
+              const preBalances = tx.meta.preBalances
+              const postBalances = tx.meta.postBalances
+              const solChange = Math.abs(postBalances[0] - preBalances[0]) / LAMPORTS_PER_SOL
+              
+              const preTokenBalances = tx.meta.preTokenBalances || []
+              const postTokenBalances = tx.meta.postTokenBalances || []
+              
+              let tokenChange = 0
+              for (const post of postTokenBalances) {
+                const pre = preTokenBalances.find(p => p.accountIndex === post.accountIndex)
+                const preAmount = pre?.uiTokenAmount.uiAmount || 0
+                const postAmount = post.uiTokenAmount.uiAmount || 0
+                const change = Math.abs(postAmount - preAmount)
+                if (change > tokenChange) tokenChange = change
+              }
+              
+              if (tokenChange > 0 && solChange > 0) {
+                topTokens[i].lastTradePrice = solChange / tokenChange
+              }
+            }
+          }
+        } catch {
+          // Ignore errors
+        }
+      }
       
       // Add featured PHBT at the beginning
       const featuredToken: TickerToken = {
         ...FEATURED_PHBT,
-        solReserve: 0, // Will show as featured, not by liquidity
+        solReserve: 0,
         tokenReserve: 0,
-        priceChange: 12.5, // Fixed positive value for featured token
+        lastTradePrice: 0,
+        priceChange: 12.5,
       }
       
-      setTokens([featuredToken, ...parsedTokens.slice(0, 19)])
+      setTokens([featuredToken, ...topTokens])
     } catch (error) {
       console.error("Failed to fetch ticker tokens:", error)
     } finally {
@@ -221,8 +268,11 @@ export function TokenTicker() {
         <div className="flex-1 overflow-hidden">
           <div className="animate-ticker flex items-center gap-6 py-2 px-4">
             {displayTokens.map((token, i) => {
-              // Calculate market cap using unified formula
-              const marketCapUsd = calculateMarketCapUsd(token.solReserve, token.tokenReserve, solPrice)
+              // Calculate market cap from IN-PLATFORM trade price
+              const DEFAULT_TOTAL_SUPPLY = 1_000_000_000
+              const marketCapUsd = token.lastTradePrice > 0
+                ? token.lastTradePrice * DEFAULT_TOTAL_SUPPLY * solPrice
+                : calculateMarketCapUsd(token.solReserve, token.tokenReserve, solPrice) // Fallback
               const mcDisplay = formatMarketCap(marketCapUsd)
               
               return token.isFeatured ? (

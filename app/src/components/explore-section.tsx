@@ -21,6 +21,7 @@ interface LaunchedCoin {
     image: string | null
     tokenReserve: number
     solReserve: number
+    lastTradePrice: number // In-platform price from last trade (SOL per token)
     category: TokenCategory | null
     description?: string
     website?: string
@@ -329,6 +330,7 @@ export function ExploreSection() {
                     image,
                     tokenReserve: pool.reserveOne.toNumber(),
                     solReserve: pool.reserveTwo.toNumber(),
+                    lastTradePrice: 0, // Will be fetched below
                     category,
                     description,
                     website,
@@ -336,6 +338,47 @@ export function ExploreSection() {
                     creator,
                     createdAt: Date.now() - (Math.random() * 7 * 24 * 60 * 60 * 1000), // Placeholder - will show relative time
                 })
+            }
+
+            // Fetch last trade price for each token (in-platform price!)
+            // Do this in batches to avoid rate limiting
+            for (let i = 0; i < parsedCoins.length; i++) {
+                try {
+                    await new Promise(r => setTimeout(r, 300)) // Delay between requests
+                    const signatures = await connection.getSignaturesForAddress(parsedCoins[i].pool, { limit: 1 })
+                    
+                    if (signatures.length > 0) {
+                        const tx = await connection.getParsedTransaction(signatures[0].signature, {
+                            maxSupportedTransactionVersion: 0
+                        })
+                        
+                        if (tx?.meta) {
+                            // Calculate price from SOL and token changes
+                            const preBalances = tx.meta.preBalances
+                            const postBalances = tx.meta.postBalances
+                            const solChange = Math.abs(postBalances[0] - preBalances[0]) / LAMPORTS_PER_SOL
+                            
+                            // Find token change
+                            const preTokenBalances = tx.meta.preTokenBalances || []
+                            const postTokenBalances = tx.meta.postTokenBalances || []
+                            
+                            let tokenChange = 0
+                            for (const post of postTokenBalances) {
+                                const pre = preTokenBalances.find(p => p.accountIndex === post.accountIndex)
+                                const preAmount = pre?.uiTokenAmount.uiAmount || 0
+                                const postAmount = post.uiTokenAmount.uiAmount || 0
+                                const change = Math.abs(postAmount - preAmount)
+                                if (change > tokenChange) tokenChange = change
+                            }
+                            
+                            if (tokenChange > 0 && solChange > 0) {
+                                parsedCoins[i].lastTradePrice = solChange / tokenChange
+                            }
+                        }
+                    }
+                } catch (e) {
+                    // Ignore errors, keep price at 0
+                }
             }
 
             setCoins(parsedCoins)
@@ -501,8 +544,11 @@ export function ExploreSection() {
                 <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 ${isLoading ? 'opacity-80' : ''}`}>
                     {filteredCoins.map((coin) => {
                         const isWatched = watchlist.includes(coin.mint.toBase58())
-                        // Calculate market cap using unified formula
-                        const marketCapUsd = calculateMarketCapUsd(coin.solReserve, coin.tokenReserve, solPrice)
+                        // Calculate market cap from IN-PLATFORM trade price (default 1B supply)
+                        const DEFAULT_TOTAL_SUPPLY = 1_000_000_000
+                        const marketCapUsd = coin.lastTradePrice > 0
+                            ? coin.lastTradePrice * DEFAULT_TOTAL_SUPPLY * solPrice
+                            : calculateMarketCapUsd(coin.solReserve, coin.tokenReserve, solPrice) // Fallback
                         const marketCapDisplay = formatMarketCap(marketCapUsd)
                         
                         // Random price change for visual interest (deterministic based on mint)
