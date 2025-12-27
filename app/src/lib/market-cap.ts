@@ -89,3 +89,4 @@ export function formatMarketCapWithSol(marketCapUsd: number, solPriceUsd: number
     }
 }
 
+

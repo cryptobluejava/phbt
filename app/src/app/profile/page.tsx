@@ -64,6 +64,7 @@ export default function ProfilePage() {
     const [scanStatus, setScanStatus] = useState<string>("")
     const [lastScanned, setLastScanned] = useState<string | null>(null)
     const [walletBalance, setWalletBalance] = useState<number | null>(null)
+    const [hasAutoScanned, setHasAutoScanned] = useState(false)
 
     useEffect(() => {
         setMounted(true)
@@ -370,6 +371,10 @@ export default function ProfilePage() {
             setLastScanned(new Date().toLocaleString())
             setScanStatus("")
             
+            // Save scan time to localStorage
+            const lastScanKey = `phbt_last_scan_${publicKey.toBase58()}`
+            localStorage.setItem(lastScanKey, Date.now().toString())
+            
         } catch (error) {
             console.error("Failed to scan wallet:", error)
             setScanStatus("Scan failed. Try again later.")
@@ -383,6 +388,29 @@ export default function ProfilePage() {
             fetchProfile()
         }
     }, [connected, publicKey, fetchProfile])
+
+    // Auto-scan wallet when profile loads with no data
+    useEffect(() => {
+        if (!connected || !publicKey || isLoading || hasAutoScanned || isScanning) return
+        
+        // Check localStorage for last scan time
+        const lastScanKey = `phbt_last_scan_${publicKey.toBase58()}`
+        const lastScanTime = localStorage.getItem(lastScanKey)
+        const fiveMinutesAgo = Date.now() - 5 * 60 * 1000
+        
+        // Auto-scan if:
+        // 1. Never scanned before, OR
+        // 2. Last scan was more than 5 minutes ago AND stats show no activity
+        const shouldAutoScan = !lastScanTime || 
+            (parseInt(lastScanTime) < fiveMinutesAgo && stats?.totalTrades === 0)
+        
+        if (shouldAutoScan) {
+            setHasAutoScanned(true)
+            // Save scan time to localStorage
+            localStorage.setItem(lastScanKey, Date.now().toString())
+            scanWallet()
+        }
+    }, [connected, publicKey, isLoading, hasAutoScanned, isScanning, stats, scanWallet])
 
     // Get achievement definition to check if secret
     const getAchievementDef = (id: string): AchievementDef | undefined => 
@@ -468,14 +496,20 @@ export default function ProfilePage() {
                                         {stats?.totalTrades === 0 ? "No activity found" : `${stats?.totalTrades || 0} trades on PHBT`}
                                     </p>
                                     <p className="text-xs text-[#5F6A6E]">
-                                        {lastScanned ? `Last scanned: ${lastScanned}` : "Scan your wallet to discover your stats & achievements"}
+                                        {lastScanned ? `Last scanned: ${lastScanned}` : "Auto-scanning your wallet..."}
                                     </p>
                                     {scanStatus && (
-                                        <p className="text-xs text-amber-400 mt-1">{scanStatus}</p>
+                                        <p className="text-xs text-amber-400 mt-1 flex items-center gap-1">
+                                            <RefreshCw className="w-3 h-3 animate-spin" />
+                                            {scanStatus}
+                                        </p>
                                     )}
                                 </div>
                                 <button
-                                    onClick={scanWallet}
+                                    onClick={() => {
+                                        setHasAutoScanned(true)
+                                        scanWallet()
+                                    }}
                                     disabled={isScanning}
                                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#8C3A32] text-[#E9E1D8] text-sm font-medium hover:bg-[#A04438] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 >
@@ -486,8 +520,8 @@ export default function ProfilePage() {
                                         </>
                                     ) : (
                                         <>
-                                            <Search className="w-4 h-4" />
-                                            Scan Wallet
+                                            <RefreshCw className="w-4 h-4" />
+                                            Rescan
                                         </>
                                     )}
                                 </button>
