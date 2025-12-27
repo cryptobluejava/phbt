@@ -180,8 +180,8 @@ export function useTokenPageData(mint: PublicKey) {
             if (shouldFetchExpensiveData) {
                 try {
                     const [poolPDA] = getPoolPDA(mint)
-                    // Reduced to 3 trades to minimize RPC
-                    const signatures = await connection.getSignaturesForAddress(poolPDA, { limit: 3 })
+                    // Fetch last 10 trades for better history
+                    const signatures = await connection.getSignaturesForAddress(poolPDA, { limit: 10 })
 
                     // Process transactions with larger delays
                     for (const sig of signatures) {

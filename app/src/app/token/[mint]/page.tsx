@@ -12,7 +12,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { PublicKey } from "@solana/web3.js"
 import Link from "next/link"
 import { useTokenPageData } from "@/hooks/use-token-page-data"
-import { Copy, Check, ExternalLink, Globe, Twitter, Send, Users, Droplets, TrendingUp, TrendingDown, Activity, Zap, ArrowLeft } from "lucide-react"
+import { Copy, Check, ExternalLink, Globe, Twitter, Send, Users, Droplets, ArrowLeft, Activity, PieChart } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { getSolscanTokenUrl } from "@/lib/format"
 import { IS_MAINNET } from "@/lib/constants"
@@ -45,6 +45,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     const [copiedCA, setCopiedCA] = useState(false)
     const [imageError, setImageError] = useState(false)
     const [solPrice, setSolPrice] = useState(180)
+    const [activeTab, setActiveTab] = useState<'trades' | 'distribution'>('trades')
     
     // Fetch SOL price
     useEffect(() => {
@@ -261,7 +262,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                 {/* Main Content */}
                 <div className="max-w-[1800px] mx-auto p-4 lg:p-6">
                     <div className="grid grid-cols-1 xl:grid-cols-[1fr_400px] gap-6">
-                        {/* Left Column - Chart & Data */}
+                        {/* Left Column - Chart & Tabbed Data */}
                         <div className="space-y-6">
                             {/* Chart Card */}
                             <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0E1518] to-[#0A0F11] border border-[#1A2428] shadow-xl">
@@ -275,27 +276,62 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                                 />
                             </div>
 
-                            {/* Trades & Distribution in Grid */}
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                {/* Trades Table */}
-                                <div className="rounded-2xl bg-gradient-to-br from-[#0E1518] to-[#0A0F11] border border-[#1A2428] overflow-hidden shadow-xl">
-                                    <TradesTable 
-                                        mint={mint} 
-                                        trades={trades} 
-                                        isLoading={isLoading} 
-                                        isRefreshing={isRefreshing} 
-                                        onRefresh={manualRefetch} 
-                                    />
+                            {/* Full-width Tabbed Section */}
+                            <div className="rounded-2xl bg-gradient-to-br from-[#0E1518] to-[#0A0F11] border border-[#1A2428] overflow-hidden shadow-xl">
+                                {/* Tab Headers */}
+                                <div className="flex border-b border-[#1A2428]">
+                                    <button
+                                        onClick={() => setActiveTab('trades')}
+                                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-all ${
+                                            activeTab === 'trades'
+                                                ? 'text-[#E9E1D8] bg-[#1A2428]/50 border-b-2 border-[#8C3A32]'
+                                                : 'text-[#5F6A6E] hover:text-[#9FA6A3] hover:bg-[#1A2428]/30'
+                                        }`}
+                                    >
+                                        <Activity className="w-4 h-4" />
+                                        Recent Trades
+                                        {trades.length > 0 && (
+                                            <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-[#8C3A32]/20 text-[#8C3A32]">
+                                                {trades.length}
+                                            </span>
+                                        )}
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTab('distribution')}
+                                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-all ${
+                                            activeTab === 'distribution'
+                                                ? 'text-[#E9E1D8] bg-[#1A2428]/50 border-b-2 border-[#8C3A32]'
+                                                : 'text-[#5F6A6E] hover:text-[#9FA6A3] hover:bg-[#1A2428]/30'
+                                        }`}
+                                    >
+                                        <PieChart className="w-4 h-4" />
+                                        Token Distribution
+                                        {holdings.length > 0 && (
+                                            <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-[#8C3A32]/20 text-[#8C3A32]">
+                                                {holdings.length}
+                                            </span>
+                                        )}
+                                    </button>
                                 </div>
 
-                                {/* Wallet Distribution */}
-                                <div className="rounded-2xl bg-gradient-to-br from-[#0E1518] to-[#0A0F11] border border-[#1A2428] overflow-hidden shadow-xl">
-                                    <WalletDistribution
-                                        holdings={holdings}
-                                        isLoading={isLoading}
-                                        isRefreshing={isRefreshing}
-                                        onRefresh={manualRefetch}
-                                    />
+                                {/* Tab Content */}
+                                <div className="p-0">
+                                    {activeTab === 'trades' ? (
+                                        <TradesTable 
+                                            mint={mint} 
+                                            trades={trades} 
+                                            isLoading={isLoading} 
+                                            isRefreshing={isRefreshing} 
+                                            onRefresh={manualRefetch} 
+                                        />
+                                    ) : (
+                                        <WalletDistribution
+                                            holdings={holdings}
+                                            isLoading={isLoading}
+                                            isRefreshing={isRefreshing}
+                                            onRefresh={manualRefetch}
+                                        />
+                                    )}
                                 </div>
                             </div>
                         </div>
