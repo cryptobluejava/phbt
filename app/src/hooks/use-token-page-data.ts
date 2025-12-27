@@ -37,10 +37,16 @@ export interface WalletHolding {
     isLiquidityPool: boolean
 }
 
+export interface PoolData {
+    solReserve: number // in lamports
+    tokenReserve: number // in atomic units
+}
+
 export interface TokenPageData {
     metadata: TokenMetadata | null
     trades: Trade[]
     holdings: WalletHolding[]
+    pool: PoolData | null
     isLoading: boolean
     isRefreshing: boolean // True only during manual refresh (button click)
     hasFetched: boolean // Track if we've done initial fetch
@@ -53,6 +59,7 @@ export function useTokenPageData(mint: PublicKey) {
         metadata: null,
         trades: [],
         holdings: [],
+        pool: null,
         isLoading: true,
         isRefreshing: false,
         hasFetched: false,
@@ -310,12 +317,32 @@ export function useTokenPageData(mint: PublicKey) {
                 }
             } // End holdings fetch
 
+            // ============ STEP 4: Fetch Pool Reserves ============
+            let pool: PoolData | null = null
+            try {
+                const [poolPDA] = getPoolPDA(mint)
+                const poolAccount = await connection.getAccountInfo(poolPDA)
+                if (poolAccount && poolAccount.data.length >= 88) {
+                    const data = poolAccount.data.slice(8) // Skip discriminator
+                    // Pool layout: token_one (32) + token_two (32) + reserve_one (8) + reserve_two (8) + ...
+                    const reserveOne = data.readBigUInt64LE(72) // Token reserve at offset 72
+                    const reserveTwo = data.readBigUInt64LE(80) // SOL reserve at offset 80
+                    pool = {
+                        solReserve: Number(reserveTwo),
+                        tokenReserve: Number(reserveOne),
+                    }
+                }
+            } catch (e) {
+                console.error("Pool fetch error:", e)
+            }
+
             // Success! Empty arrays are valid - no need to retry
             hasFetchedRef.current = true
             setData({
                 metadata,
                 trades,
                 holdings,
+                pool,
                 isLoading: false,
                 isRefreshing: false,
                 hasFetched: true,
@@ -351,6 +378,7 @@ export function useTokenPageData(mint: PublicKey) {
                 metadata: null,
                 trades: [],
                 holdings: [],
+                pool: null,
                 isLoading: true,
                 isRefreshing: false,
                 hasFetched: false,

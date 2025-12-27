@@ -7,11 +7,9 @@ import { Card, CardContent } from "@/components/ui/card"
 import { RefreshCw, Rocket, ExternalLink, Search, SlidersHorizontal, Star, Globe, Twitter, Copy, Check, TrendingUp, TrendingDown, Clock, User } from "lucide-react"
 import { PROGRAM_ID, POOL_SEED_PREFIX, TOKEN_METADATA_PROGRAM_ID, REFRESH_INTERVALS, HIDDEN_TOKENS, HIDE_OLD_TOKENS, ALLOWED_TOKENS, TOKEN_CATEGORIES, TokenCategory, LAMPORTS_PER_SOL } from "@/lib/constants"
 import { formatLamportsToSol, shortenPubkey } from "@/lib/format"
+import { calculateMarketCapUsd, formatMarketCap, getCachedSolPrice } from "@/lib/market-cap"
 import Link from "next/link"
 import { BN } from "bn.js"
-
-// SOL price estimate (updated periodically via CoinGecko in production)
-const SOL_PRICE_USD = 180
 
 
 
@@ -84,6 +82,19 @@ export function ExploreSection() {
     const [sortBy, setSortBy] = useState<SortOption>('liquidity')
     const [watchlist, setWatchlist] = useState<string[]>([])
     const [categoryFilter, setCategoryFilter] = useState<TokenCategory | 'all'>('all')
+    const [solPrice, setSolPrice] = useState<number>(180) // Default fallback
+    
+    // Fetch SOL price on mount
+    useEffect(() => {
+        const fetchPrice = async () => {
+            const price = await getCachedSolPrice()
+            if (price > 0) setSolPrice(price)
+        }
+        fetchPrice()
+        // Refresh every 2 minutes
+        const interval = setInterval(fetchPrice, 120000)
+        return () => clearInterval(interval)
+    }, [])
     
     // Load watchlist from localStorage on mount
     useEffect(() => {
@@ -490,15 +501,9 @@ export function ExploreSection() {
                 <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 ${isLoading ? 'opacity-80' : ''}`}>
                     {filteredCoins.map((coin) => {
                         const isWatched = watchlist.includes(coin.mint.toBase58())
-                        // Calculate market cap (SOL reserve * 2 for bonding curve estimation)
-                        const marketCapSol = (coin.solReserve / LAMPORTS_PER_SOL) * 2
-                        const marketCapUsd = marketCapSol * SOL_PRICE_USD
-                        // Format USD market cap
-                        const marketCapDisplay = marketCapUsd < 1000 
-                            ? `$${marketCapUsd.toFixed(0)}`
-                            : marketCapUsd < 1000000 
-                                ? `$${(marketCapUsd / 1000).toFixed(1)}K` 
-                                : `$${(marketCapUsd / 1000000).toFixed(2)}M`
+                        // Calculate market cap using unified formula
+                        const marketCapUsd = calculateMarketCapUsd(coin.solReserve, coin.tokenReserve, solPrice)
+                        const marketCapDisplay = formatMarketCap(marketCapUsd)
                         
                         // Random price change for visual interest (deterministic based on mint)
                         const priceChange = ((parseInt(coin.mint.toBase58().slice(0, 8), 36) % 200) - 80) / 10

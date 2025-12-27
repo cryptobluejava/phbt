@@ -5,12 +5,10 @@ import { useConnection } from "@solana/wallet-adapter-react"
 import { PublicKey } from "@solana/web3.js"
 import { PROGRAM_ID, TOKEN_METADATA_PROGRAM_ID, HIDDEN_TOKENS, HIDE_OLD_TOKENS, ALLOWED_TOKENS, LAMPORTS_PER_SOL } from "@/lib/constants"
 import { formatLamportsToSol } from "@/lib/format"
+import { calculateMarketCapUsd, formatMarketCap, getCachedSolPrice } from "@/lib/market-cap"
 import Link from "next/link"
 import { BN } from "bn.js"
 import { TrendingUp, TrendingDown, Flame, Crown } from "lucide-react"
-
-// SOL price estimate
-const SOL_PRICE_USD = 180
 
 // Featured PHBT token on pump.fun
 const FEATURED_PHBT = {
@@ -28,6 +26,7 @@ interface TickerToken {
   symbol: string
   image: string | null
   solReserve: number
+  tokenReserve: number
   priceChange?: number
   url?: string
   isFeatured?: boolean
@@ -67,6 +66,18 @@ export function TokenTicker() {
   const { connection } = useConnection()
   const [tokens, setTokens] = useState<TickerToken[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [solPrice, setSolPrice] = useState<number>(180) // Default fallback
+  
+  // Fetch SOL price on mount
+  useEffect(() => {
+    const fetchPrice = async () => {
+      const price = await getCachedSolPrice()
+      if (price > 0) setSolPrice(price)
+    }
+    fetchPrice()
+    const interval = setInterval(fetchPrice, 120000)
+    return () => clearInterval(interval)
+  }, [])
 
   const fetchTokens = useCallback(async () => {
     try {
@@ -84,6 +95,7 @@ export function TokenTicker() {
       // Parse pool data
       const poolsWithMints: Array<{
         tokenOne: PublicKey
+        reserveOne: number
         reserveTwo: number
       }> = []
 
@@ -91,12 +103,13 @@ export function TokenTicker() {
         try {
           const data = account.data.slice(8)
           const tokenOne = new PublicKey(data.slice(0, 32))
+          const reserveOne = new BN(data.slice(72, 80), 'le').toNumber()
           const reserveTwo = new BN(data.slice(80, 88), 'le').toNumber()
 
           if (tokenOne.toBase58() === "11111111111111111111111111111111") continue
           if (HIDDEN_TOKENS.includes(tokenOne.toBase58())) continue
 
-          poolsWithMints.push({ tokenOne, reserveTwo })
+          poolsWithMints.push({ tokenOne, reserveOne, reserveTwo })
         } catch {
           // Skip invalid pools
         }
@@ -152,6 +165,7 @@ export function TokenTicker() {
           symbol,
           image,
           solReserve: pool.reserveTwo,
+          tokenReserve: pool.reserveOne,
           // Generate deterministic "random" based on mint address for consistent SSR
           priceChange: ((parseInt(mintAddress.slice(0, 8), 36) % 250) - 100) / 10
         })
@@ -164,6 +178,7 @@ export function TokenTicker() {
       const featuredToken: TickerToken = {
         ...FEATURED_PHBT,
         solReserve: 0, // Will show as featured, not by liquidity
+        tokenReserve: 0,
         priceChange: 12.5, // Fixed positive value for featured token
       }
       
@@ -206,14 +221,9 @@ export function TokenTicker() {
         <div className="flex-1 overflow-hidden">
           <div className="animate-ticker flex items-center gap-6 py-2 px-4">
             {displayTokens.map((token, i) => {
-              // Calculate market cap in USD for non-featured tokens
-              const marketCapSol = (token.solReserve / LAMPORTS_PER_SOL) * 2
-              const marketCapUsd = marketCapSol * SOL_PRICE_USD
-              const mcDisplay = marketCapUsd < 1000 
-                ? `$${marketCapUsd.toFixed(0)}`
-                : marketCapUsd < 1000000 
-                    ? `$${(marketCapUsd / 1000).toFixed(1)}K` 
-                    : `$${(marketCapUsd / 1000000).toFixed(2)}M`
+              // Calculate market cap using unified formula
+              const marketCapUsd = calculateMarketCapUsd(token.solReserve, token.tokenReserve, solPrice)
+              const mcDisplay = formatMarketCap(marketCapUsd)
               
               return token.isFeatured ? (
                 // Featured PHBT token with special styling
