@@ -7,7 +7,7 @@ import { useWallet, useConnection } from "@solana/wallet-adapter-react"
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
 import { LAMPORTS_PER_SOL } from "@solana/web3.js"
 import { REFRESH_INTERVALS } from "@/lib/constants"
-import { Wallet, Skull, HelpCircle, X, Download, Trophy } from "lucide-react"
+import { Wallet, Skull, HelpCircle, X, Download, Trophy, Book } from "lucide-react"
 import logo from "@/app/logo.png"
 
 export function Header() {
@@ -255,6 +255,20 @@ export function Header() {
               >
                 <Trophy className="w-4 h-4" style={{ color: 'var(--accent)' }} />
                 <span className="hidden sm:inline">Profile</span>
+              </Link>
+              <Link
+                href="/docs"
+                className="flex items-center gap-2 px-2 sm:px-3 py-2 rounded-xl text-sm font-medium transition-colors"
+                style={{ 
+                  backgroundColor: 'var(--surface)', 
+                  borderColor: 'var(--border)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--primary)'
+                }}
+                title="Documentation"
+              >
+                <Book className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+                <span className="hidden sm:inline">Docs</span>
               </Link>
               <Link
                 href="/launch"

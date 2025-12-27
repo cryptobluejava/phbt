@@ -47,3 +47,6 @@ out/
 
 # Local config overrides
 Anchor-prod.toml
+
+# Private implementation plans
+PHBT-DEX-IMPLEMENTATION-PLAN.md

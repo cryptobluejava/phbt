@@ -3,6 +3,7 @@ import "./globals.css";
 import { WalletProvider } from "@/components/wallet-provider";
 import { Header } from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
+import { TokenTicker } from "@/components/token-ticker";
 
 export const metadata: Metadata = {
   title: "Paper Hand Bitch Tax",
@@ -52,9 +53,12 @@ export default function RootLayout({
         <ThemeProvider>
           <WalletProvider>
             <Header />
-            <main className="pt-16">
-              {children}
-            </main>
+            <div className="pt-16">
+              <TokenTicker />
+              <main>
+                {children}
+              </main>
+            </div>
           </WalletProvider>
         </ThemeProvider>
       </body>
